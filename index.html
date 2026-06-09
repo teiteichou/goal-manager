@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Goal Nest</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">G</span>
+          <div>
+            <strong>Goal Nest</strong>
+            <span>目標管理</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="目標カテゴリ">
+          <button class="nav-item active" data-filter="all">すべて</button>
+          <button class="nav-item" data-filter="long">長期目標</button>
+          <button class="nav-item" data-filter="middle">中期目標</button>
+          <button class="nav-item" data-filter="day">D目標</button>
+          <button class="nav-item" data-filter="hour">H目標</button>
+          <button class="nav-item" data-filter="minute">Min目標</button>
+        </nav>
+
+        <section class="focus-panel">
+          <div>
+            <span class="eyebrow">Focus Timer</span>
+            <h2 id="timerLabel">短時間集中</h2>
+          </div>
+          <div class="timer-ring">
+            <span id="timerDisplay">25:00</span>
+          </div>
+          <div class="timer-controls">
+            <button class="icon-btn" id="timerMinus" title="5分短くする">-</button>
+            <button class="primary small" id="timerToggle">開始</button>
+            <button class="icon-btn" id="timerPlus" title="5分長くする">+</button>
+          </div>
+          <label class="field compact">
+            <span>背景音</span>
+            <select id="soundSelect">
+              <option value="off">なし</option>
+              <option value="library">図書館</option>
+              <option value="forest">森林</option>
+              <option value="exam">試験会場</option>
+              <option value="field">運動場</option>
+              <option value="classroom">教室</option>
+              <option value="rain">雨の日</option>
+            </select>
+          </label>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <span class="eyebrow">今日の進捗</span>
+            <h1>目標を分解し、毎日の実行へつなげる。</h1>
+          </div>
+          <div class="top-actions">
+            <button class="ghost" id="notifyBtn">通知を許可</button>
+            <button class="primary" id="newGoalBtn">目標を作成</button>
+          </div>
+        </header>
+
+        <section class="stats-grid" aria-label="進捗サマリー">
+          <article class="stat">
+            <span>進行中</span>
+            <strong id="activeCount">0</strong>
+          </article>
+          <article class="stat">
+            <span>達成</span>
+            <strong id="doneCount">0</strong>
+          </article>
+          <article class="stat">
+            <span>期限間近</span>
+            <strong id="soonCount">0</strong>
+          </article>
+          <article class="stat">
+            <span>今日の集中</span>
+            <strong id="focusCount">0m</strong>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <div class="goal-board">
+            <div class="section-head">
+              <h2>目標リスト</h2>
+              <div class="segmented" role="group" aria-label="表示切替">
+                <button class="segment active" data-view="active">進行中</button>
+                <button class="segment" data-view="done">達成済み</button>
+                <button class="segment" data-view="missed">未達成</button>
+              </div>
+            </div>
+            <div class="goal-list" id="goalList"></div>
+          </div>
+
+          <aside class="coach">
+            <div class="section-head tight">
+              <h2>AIコーチ</h2>
+              <button class="ghost small" id="coachBtn">提案</button>
+            </div>
+            <div class="coach-card" id="coachCard">
+              目標を選ぶか作成すると、次の一手を整理します。
+            </div>
+            <div class="calendar-box">
+              <h3>リマインダー</h3>
+              <div id="reminderList" class="reminder-list"></div>
+            </div>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="goalDialog">
+      <form method="dialog" id="goalForm" class="goal-form">
+        <div class="dialog-head">
+          <h2 id="dialogTitle">目標を作成</h2>
+          <button class="icon-btn" value="cancel" formnovalidate title="閉じる">x</button>
+        </div>
+        <input type="hidden" id="goalId" />
+        <div class="form-grid">
+          <label class="field wide">
+            <span>タイトル</span>
+            <input id="title" required maxlength="70" placeholder="例：日本語能力試験 N1 に合格する" />
+          </label>
+          <label class="field">
+            <span>カテゴリ</span>
+            <select id="category">
+              <option value="long">長期目標</option>
+              <option value="middle">中期目標</option>
+              <option value="day">D目標</option>
+              <option value="hour">H目標</option>
+              <option value="minute">Min目標</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>期限</span>
+            <input id="dueDate" type="datetime-local" required />
+          </label>
+          <label class="field wide">
+            <span>実行メモ</span>
+            <textarea id="notes" rows="3" placeholder="成功条件、勉強範囲、準備物など"></textarea>
+          </label>
+          <label class="field">
+            <span>達成時のご褒美</span>
+            <input id="reward" placeholder="例：投資予算から本を買う" />
+          </label>
+          <label class="field">
+            <span>通知タイミング</span>
+            <select id="reminderPreset">
+              <option value="0">期限ちょうど</option>
+              <option value="10">10分前</option>
+              <option value="60">1時間前</option>
+              <option value="1440">1日前</option>
+            </select>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button class="ghost" value="cancel" formnovalidate>キャンセル</button>
+          <button class="primary" value="default">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="reviewDialog">
+      <form method="dialog" id="reviewForm" class="goal-form">
+        <div class="dialog-head">
+          <h2>未達成レビュー</h2>
+          <button class="icon-btn" value="cancel" formnovalidate title="閉じる">x</button>
+        </div>
+        <input type="hidden" id="reviewGoalId" />
+        <label class="field wide">
+          <span>コメント</span>
+          <textarea id="reviewComment" rows="4" required placeholder="何が詰まりましたか。次は何を変えますか。"></textarea>
+        </label>
+        <label class="field wide">
+          <span>延長理由</span>
+          <select id="extendReason">
+            <option value="scope">見積もりより範囲が広かった</option>
+            <option value="priority">優先順位が変わった</option>
+            <option value="health">体調・生活リズムの影響</option>
+            <option value="resource">資料や環境が不足した</option>
+          </select>
+        </label>
+        <label class="field wide">
+          <span>新しい期限</span>
+          <input id="extendedDate" type="datetime-local" required />
+        </label>
+        <div class="dialog-actions">
+          <button class="ghost" id="copyFromReview" value="copy">コピーして新規化</button>
+          <button class="primary" value="extend">延長する</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
