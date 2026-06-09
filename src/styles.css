@@ -35,6 +35,10 @@ button {
   cursor: pointer;
 }
 
+button svg {
+  flex: 0 0 auto;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -193,6 +197,56 @@ h3 {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.sync-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 11px;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 34px;
+  padding: 3px 5px;
+  color: var(--muted);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.language-switch button {
+  min-width: 34px;
+  min-height: 28px;
+  padding: 0 7px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.language-switch button.active {
+  color: #fff;
+  background: var(--accent);
+}
+
+.primary,
+.ghost,
+.small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 .primary {
@@ -398,6 +452,11 @@ h3 {
   line-height: 1.65;
 }
 
+.coach-card strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
 .reminder-list {
   display: grid;
   gap: 10px;
@@ -405,6 +464,8 @@ h3 {
 }
 
 .reminder-item {
+  display: grid;
+  gap: 3px;
   padding: 10px;
   background: #f6f8fa;
   border-left: 4px solid var(--gold);
@@ -418,6 +479,11 @@ h3 {
   text-align: center;
   border: 1px dashed var(--line);
   border-radius: 8px;
+}
+
+.compact-empty {
+  padding: 18px;
+  font-size: 13px;
 }
 
 .field {
@@ -451,16 +517,23 @@ h3 {
   padding: 9px 10px;
 }
 
-dialog {
-  width: min(720px, calc(100vw - 28px));
-  border: 0;
-  border-radius: 8px;
-  padding: 0;
-  box-shadow: var(--shadow);
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: rgba(25, 32, 40, 0.42);
+  z-index: 20;
 }
 
-dialog::backdrop {
-  background: rgba(25, 32, 40, 0.42);
+.modal {
+  width: min(720px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
 }
 
 .goal-form {
