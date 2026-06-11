@@ -518,6 +518,11 @@ h3 {
   border-color: #d9c4f6;
 }
 
+.sticky-note.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 10px 24px rgba(126, 104, 28, 0.1);
+}
+
 .sticky-note strong,
 .sticky-note p {
   overflow-wrap: anywhere;
@@ -599,6 +604,14 @@ h3 {
   min-height: 94px;
 }
 
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  color: #3a4652;
+  background: #f4f7f9;
+  cursor: default;
+}
+
 .study-note-card {
   display: grid;
   gap: 4px;
@@ -620,6 +633,31 @@ h3 {
 .study-note-card span {
   color: var(--muted);
   font-size: 13px;
+}
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(25, 32, 40, 0.35);
+  z-index: 30;
+}
+
+.confirm-dialog {
+  display: grid;
+  gap: 16px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.confirm-dialog p {
+  line-height: 1.6;
 }
 
 .timeline-list {

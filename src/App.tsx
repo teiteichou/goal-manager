@@ -160,6 +160,9 @@ type Texts = {
   previousPage: string;
   nextPage: string;
   studyTemplateHint: string;
+  confirmDeleteNote: string;
+  yes: string;
+  no: string;
   financeTitle: string;
   financeNamePlaceholder: string;
   amount: string;
@@ -309,6 +312,9 @@ const translations: Record<Language, Texts> = {
     previousPage: "前へ",
     nextPage: "次へ",
     studyTemplateHint: "テーマを選ぶと、学習ノート用の問いが表示されます。",
+    confirmDeleteNote: "本ノートの内容を削除しますか？",
+    yes: "YES",
+    no: "NO",
     financeTitle: "記帳",
     financeNamePlaceholder: "例：参考書、給料、カフェ",
     amount: "金額",
@@ -464,6 +470,9 @@ const translations: Record<Language, Texts> = {
     previousPage: "Previous",
     nextPage: "Next",
     studyTemplateHint: "Choose a theme to display a study-note template.",
+    confirmDeleteNote: "Do you want to delete this note?",
+    yes: "YES",
+    no: "NO",
     financeTitle: "Finance",
     financeNamePlaceholder: "Example: textbook, salary, cafe",
     amount: "Amount",
@@ -619,6 +628,9 @@ const translations: Record<Language, Texts> = {
     previousPage: "上一页",
     nextPage: "下一页",
     studyTemplateHint: "选择主题后，会显示对应的学习笔记模板。",
+    confirmDeleteNote: "是否要删除本笔记内容？",
+    yes: "YES",
+    no: "NO",
     financeTitle: "记账",
     financeNamePlaceholder: "例：参考书、工资、咖啡",
     amount: "金额",
@@ -861,7 +873,10 @@ export default function App() {
     body: "",
     answers: {} as Record<string, string>,
   });
+  const [editingIdeaId, setEditingIdeaId] = useState<string | null>(null);
   const [editingStudyId, setEditingStudyId] = useState<string | null>(null);
+  const [isStudyEditing, setStudyEditing] = useState(true);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [ideaPage, setIdeaPage] = useState(1);
   const [financeDraft, setFinanceDraft] = useState({
     title: "",
@@ -1119,16 +1134,17 @@ export default function App() {
   function addNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!noteDraft.title.trim() && !noteDraft.body.trim()) return;
-    setNotes((current) => [
-      {
-        id: crypto.randomUUID(),
-        kind: "idea",
-        title: noteDraft.title.trim() || t.notesTitle,
-        body: noteDraft.body.trim(),
-        createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ]);
+    const nextNote: NoteItem = {
+      id: editingIdeaId ?? crypto.randomUUID(),
+      kind: "idea",
+      title: noteDraft.title.trim() || t.notesTitle,
+      body: noteDraft.body.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    setNotes((current) =>
+      editingIdeaId ? current.map((note) => (note.id === editingIdeaId ? nextNote : note)) : [nextNote, ...current],
+    );
+    setEditingIdeaId(null);
     setIdeaPage(1);
     setNoteDraft((current) => ({ ...current, kind: "idea", title: "", body: "" }));
   }
@@ -1151,11 +1167,14 @@ export default function App() {
     setNotes((current) =>
       editingStudyId ? current.map((note) => (note.id === editingStudyId ? nextNote : note)) : [nextNote, ...current],
     );
-    setEditingStudyId(nextNote.id);
+    setEditingStudyId(null);
+    setStudyEditing(true);
+    setNoteDraft((current) => ({ ...current, kind: "study", title: "", body: "", answers: {} }));
   }
 
-  function editStudyNote(note: NoteItem) {
+  function selectStudyNote(note: NoteItem) {
     setEditingStudyId(note.id);
+    setStudyEditing(false);
     setNoteDraft({
       kind: "study",
       themeId: note.themeId ?? "tool",
@@ -1165,12 +1184,54 @@ export default function App() {
     });
   }
 
+  function beginStudyEdit() {
+    if (!editingStudyId) return;
+    setStudyEditing(true);
+  }
+
+  function openIdeaNotes() {
+    setCurrentView("notes");
+    setNoteMode("idea");
+    setEditingStudyId(null);
+    setStudyEditing(true);
+    setNoteDraft({ kind: "idea", themeId: "tool", title: "", body: "", answers: {} });
+  }
+
+  function openStudyNotes() {
+    setCurrentView("notes");
+    setNoteMode("study");
+    setEditingIdeaId(null);
+    setNoteDraft({ kind: "study", themeId: "tool", title: "", body: "", answers: {} });
+    setEditingStudyId(null);
+    setStudyEditing(true);
+  }
+
+  function selectIdeaNote(note: NoteItem) {
+    setEditingIdeaId(note.id);
+    setNoteDraft((current) => ({
+      ...current,
+      kind: "idea",
+      title: note.title,
+      body: note.body,
+    }));
+  }
+
+  function requestDeleteNote(id: string) {
+    setPendingDeleteId(id);
+  }
+
   function deleteNote(id: string) {
     setNotes((current) => current.filter((note) => note.id !== id));
+    if (editingIdeaId === id) {
+      setEditingIdeaId(null);
+      setNoteDraft((current) => ({ ...current, kind: "idea", title: "", body: "" }));
+    }
     if (editingStudyId === id) {
       setEditingStudyId(null);
-      setNoteDraft((current) => ({ ...current, title: "", body: "", answers: {} }));
+      setStudyEditing(true);
+      setNoteDraft((current) => ({ ...current, kind: "study", title: "", body: "", answers: {} }));
     }
+    setPendingDeleteId(null);
   }
 
   function addFinanceEntry(event: FormEvent<HTMLFormElement>) {
@@ -1331,7 +1392,7 @@ export default function App() {
                 className={`module-nav-item ${currentView === key ? "active" : ""}`}
                 onClick={() => {
                   setCurrentView(key);
-                  if (key === "notes") setNoteMode("idea");
+                  if (key === "notes") openIdeaNotes();
                 }}
               >
                 <Icon size={17} />
@@ -1341,20 +1402,13 @@ export default function App() {
                 <div className="submenu">
                   <button
                     className={currentView === "notes" && noteMode === "idea" ? "active" : ""}
-                    onClick={() => {
-                      setCurrentView("notes");
-                      setNoteMode("idea");
-                    }}
+                    onClick={openIdeaNotes}
                   >
                     {t.ideaNotes}
                   </button>
                   <button
                     className={currentView === "notes" && noteMode === "study" ? "active" : ""}
-                    onClick={() => {
-                      setCurrentView("notes");
-                      setNoteMode("study");
-                      setNoteDraft((current) => ({ ...current, kind: "study" }));
-                    }}
+                    onClick={openStudyNotes}
                   >
                     {t.studyNotes}
                   </button>
@@ -1477,16 +1531,23 @@ export default function App() {
         {currentView === "notes" ? (
           <NotesView
             addNote={addNote}
+            beginStudyEdit={beginStudyEdit}
             deleteNote={deleteNote}
-            editStudyNote={editStudyNote}
+            editingIdeaId={editingIdeaId}
             editingStudyId={editingStudyId}
             ideaPage={ideaPage}
+            isStudyEditing={isStudyEditing}
             language={language}
             noteMode={noteMode}
             noteDraft={noteDraft}
             notes={notes}
+            pendingDeleteId={pendingDeleteId}
+            requestDeleteNote={requestDeleteNote}
             saveStudyNote={saveStudyNote}
+            selectIdeaNote={selectIdeaNote}
+            selectStudyNote={selectStudyNote}
             setIdeaPage={setIdeaPage}
+            setPendingDeleteId={setPendingDeleteId}
             setNoteDraft={setNoteDraft}
             t={t}
           />
@@ -1904,30 +1965,44 @@ function CalendarView({ goals, language, t }: { goals: Goal[]; language: Languag
 
 function NotesView({
   addNote,
+  beginStudyEdit,
   deleteNote,
-  editStudyNote,
+  editingIdeaId,
   editingStudyId,
   ideaPage,
+  isStudyEditing,
   language,
   noteMode,
   noteDraft,
   notes,
+  pendingDeleteId,
+  requestDeleteNote,
   saveStudyNote,
+  selectIdeaNote,
+  selectStudyNote,
   setIdeaPage,
+  setPendingDeleteId,
   setNoteDraft,
   t,
 }: {
   addNote: (event: FormEvent<HTMLFormElement>) => void;
+  beginStudyEdit: () => void;
   deleteNote: (id: string) => void;
-  editStudyNote: (note: NoteItem) => void;
+  editingIdeaId: string | null;
   editingStudyId: string | null;
+  isStudyEditing: boolean;
   ideaPage: number;
   language: Language;
   noteMode: NoteKind;
   noteDraft: { kind: NoteKind; themeId: string; title: string; body: string; answers: Record<string, string> };
   notes: NoteItem[];
+  pendingDeleteId: string | null;
+  requestDeleteNote: (id: string) => void;
   saveStudyNote: () => void;
+  selectIdeaNote: (note: NoteItem) => void;
+  selectStudyNote: (note: NoteItem) => void;
   setIdeaPage: (page: number) => void;
+  setPendingDeleteId: (id: string | null) => void;
   setNoteDraft: Dispatch<
     SetStateAction<{ kind: NoteKind; themeId: string; title: string; body: string; answers: Record<string, string> }>
   >;
@@ -1940,6 +2015,8 @@ function NotesView({
   const totalPages = Math.max(1, Math.ceil(ideaNotes.length / 15));
   const safePage = Math.min(ideaPage, totalPages);
   const visibleIdeas = ideaNotes.slice((safePage - 1) * 15, safePage * 15);
+  const selectedStudyNote = studyNotes.find((note) => note.id === editingStudyId) ?? null;
+  const isStudyReadOnly = Boolean(selectedStudyNote && !isStudyEditing);
 
   if (noteMode === "study") {
     return (
@@ -1950,6 +2027,7 @@ function NotesView({
               <span>{t.noteTheme}</span>
               <select
                 value={noteDraft.themeId}
+                disabled={isStudyReadOnly}
                 onChange={(event) =>
                   setNoteDraft({ ...noteDraft, kind: "study", themeId: event.target.value, answers: {} })
                 }
@@ -1962,24 +2040,19 @@ function NotesView({
               </select>
             </label>
             <div className="study-actions">
-              <button className="primary small" onClick={saveStudyNote} type="button">
-                {t.save}
-              </button>
-              <button
-                className="ghost small"
-                disabled={!editingStudyId}
-                onClick={() => {
-                  const note = studyNotes.find((item) => item.id === editingStudyId);
-                  if (note) editStudyNote(note);
-                }}
-                type="button"
-              >
-                {t.edit}
-              </button>
+              {isStudyReadOnly ? (
+                <button className="ghost small" onClick={beginStudyEdit} type="button">
+                  {t.edit}
+                </button>
+              ) : (
+                <button className="primary small" onClick={saveStudyNote} type="button">
+                  {t.save}
+                </button>
+              )}
               <button
                 className="ghost small danger-action"
                 disabled={!editingStudyId}
-                onClick={() => editingStudyId && deleteNote(editingStudyId)}
+                onClick={() => editingStudyId && requestDeleteNote(editingStudyId)}
                 type="button"
               >
                 {t.delete}
@@ -1992,6 +2065,7 @@ function NotesView({
             <input
               placeholder={selectedTemplate.title}
               value={noteDraft.title}
+              disabled={isStudyReadOnly}
               onChange={(event) => setNoteDraft({ ...noteDraft, kind: "study", title: event.target.value })}
             />
           </label>
@@ -2005,6 +2079,7 @@ function NotesView({
                   <textarea
                     rows={3}
                     value={noteDraft.answers?.[key] ?? ""}
+                    disabled={isStudyReadOnly}
                     onChange={(event) =>
                       setNoteDraft({
                         ...noteDraft,
@@ -2023,7 +2098,7 @@ function NotesView({
           <h2>{t.studyNotes}</h2>
           {studyNotes.length ? (
             studyNotes.map((note) => (
-              <button className={`study-note-card ${editingStudyId === note.id ? "active" : ""}`} key={note.id} onClick={() => editStudyNote(note)}>
+              <button className={`study-note-card ${editingStudyId === note.id ? "active" : ""}`} key={note.id} onClick={() => selectStudyNote(note)}>
                 <strong>{note.title}</strong>
                 <span>{templates.find((template) => template.id === note.themeId)?.title ?? t.studyNotes}</span>
               </button>
@@ -2032,6 +2107,21 @@ function NotesView({
             <div className="empty compact-empty">{t.emptyNotes}</div>
           )}
         </aside>
+        {pendingDeleteId ? (
+          <div className="confirm-backdrop" role="presentation">
+            <div className="confirm-dialog">
+              <p>{t.confirmDeleteNote}</p>
+              <div className="dialog-actions">
+                <button className="ghost" onClick={() => setPendingDeleteId(null)} type="button">
+                  {t.no}
+                </button>
+                <button className="primary" onClick={() => deleteNote(pendingDeleteId)} type="button">
+                  {t.yes}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
     );
   }
@@ -2061,7 +2151,7 @@ function NotesView({
         </label>
         <button className="primary" type="submit">
           <Plus size={16} />
-          {t.addNote}
+          {editingIdeaId ? t.save : t.addNote}
         </button>
       </form>
 
@@ -2081,8 +2171,8 @@ function NotesView({
         {visibleIdeas.length ? (
           <div className="sticky-grid">
             {visibleIdeas.map((note) => (
-              <article className="sticky-note" key={note.id}>
-                <button className="delete-note" onClick={() => deleteNote(note.id)} title={t.delete} type="button">
+              <article className={`sticky-note ${editingIdeaId === note.id ? "active" : ""}`} key={note.id} onClick={() => selectIdeaNote(note)}>
+                <button className="delete-note" onClick={(event) => { event.stopPropagation(); requestDeleteNote(note.id); }} title={t.delete} type="button">
                   <X size={14} />
                 </button>
                 <strong>{note.title}</strong>
@@ -2094,6 +2184,21 @@ function NotesView({
           <div className="empty">{t.emptyNotes}</div>
         )}
       </div>
+      {pendingDeleteId ? (
+        <div className="confirm-backdrop" role="presentation">
+          <div className="confirm-dialog">
+            <p>{t.confirmDeleteNote}</p>
+            <div className="dialog-actions">
+              <button className="ghost" onClick={() => setPendingDeleteId(null)} type="button">
+                {t.no}
+              </button>
+              <button className="primary" onClick={() => deleteNote(pendingDeleteId)} type="button">
+                {t.yes}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
