@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { Dispatch, FormEvent, SetStateAction } from "react";
 import {
   Bell,
   CalendarDays,
@@ -42,6 +42,7 @@ type NoteItem = {
   themeId?: string;
   title: string;
   body: string;
+  answers?: Record<string, string>;
   createdAt: string;
 };
 
@@ -130,6 +131,7 @@ type Texts = {
   progress: string;
   copy: string;
   edit: string;
+  delete: string;
   review: string;
   rewardPrefix: string;
   copySuffix: string;
@@ -278,6 +280,7 @@ const translations: Record<Language, Texts> = {
     progress: "進捗",
     copy: "コピー",
     edit: "編集",
+    delete: "削除",
     review: "レビュー",
     rewardPrefix: "ご褒美",
     copySuffix: "（コピー）",
@@ -432,6 +435,7 @@ const translations: Record<Language, Texts> = {
     progress: "Progress",
     copy: "Copy",
     edit: "Edit",
+    delete: "Delete",
     review: "Review",
     rewardPrefix: "Reward",
     copySuffix: " (copy)",
@@ -586,6 +590,7 @@ const translations: Record<Language, Texts> = {
     progress: "进度",
     copy: "复制",
     edit: "编辑",
+    delete: "删除",
     review: "复盘",
     rewardPrefix: "奖励",
     copySuffix: "（复制）",
@@ -827,6 +832,7 @@ export default function App() {
   const [language, setLanguage] = useState<Language>(getInitialLanguage);
   const t = translations[language];
   const [currentView, setCurrentView] = useState<ViewKey>("dashboard");
+  const [noteMode, setNoteMode] = useState<NoteKind>("idea");
   const [goals, setGoals] = useState<Goal[]>(() => loadLocalGoals(buildInitialGoals(translations.ja)));
   const [notes, setNotes] = useState<NoteItem[]>(() => readJson(notesStoreKey, []));
   const [financeEntries, setFinanceEntries] = useState<FinanceEntry[]>(() => readJson(financeStoreKey, []));
@@ -853,7 +859,9 @@ export default function App() {
     themeId: "tool",
     title: "",
     body: "",
+    answers: {} as Record<string, string>,
   });
+  const [editingStudyId, setEditingStudyId] = useState<string | null>(null);
   const [ideaPage, setIdeaPage] = useState(1);
   const [financeDraft, setFinanceDraft] = useState({
     title: "",
@@ -1114,8 +1122,7 @@ export default function App() {
     setNotes((current) => [
       {
         id: crypto.randomUUID(),
-        kind: noteDraft.kind,
-        themeId: noteDraft.kind === "study" ? noteDraft.themeId : undefined,
+        kind: "idea",
         title: noteDraft.title.trim() || t.notesTitle,
         body: noteDraft.body.trim(),
         createdAt: new Date().toISOString(),
@@ -1123,7 +1130,47 @@ export default function App() {
       ...current,
     ]);
     setIdeaPage(1);
-    setNoteDraft((current) => ({ ...current, title: "", body: "" }));
+    setNoteDraft((current) => ({ ...current, kind: "idea", title: "", body: "" }));
+  }
+
+  function saveStudyNote() {
+    const template = studyTemplates[language].find((item) => item.id === noteDraft.themeId) ?? studyTemplates[language][0];
+    const hasAnswers = Object.values(noteDraft.answers).some((value) => value.trim());
+    if (!noteDraft.title.trim() && !hasAnswers) return;
+
+    const nextNote: NoteItem = {
+      id: editingStudyId ?? crypto.randomUUID(),
+      kind: "study",
+      themeId: template.id,
+      title: noteDraft.title.trim() || template.title,
+      body: "",
+      answers: noteDraft.answers,
+      createdAt: new Date().toISOString(),
+    };
+
+    setNotes((current) =>
+      editingStudyId ? current.map((note) => (note.id === editingStudyId ? nextNote : note)) : [nextNote, ...current],
+    );
+    setEditingStudyId(nextNote.id);
+  }
+
+  function editStudyNote(note: NoteItem) {
+    setEditingStudyId(note.id);
+    setNoteDraft({
+      kind: "study",
+      themeId: note.themeId ?? "tool",
+      title: note.title,
+      body: "",
+      answers: note.answers ?? {},
+    });
+  }
+
+  function deleteNote(id: string) {
+    setNotes((current) => current.filter((note) => note.id !== id));
+    if (editingStudyId === id) {
+      setEditingStudyId(null);
+      setNoteDraft((current) => ({ ...current, title: "", body: "", answers: {} }));
+    }
   }
 
   function addFinanceEntry(event: FormEvent<HTMLFormElement>) {
@@ -1279,14 +1326,41 @@ export default function App() {
 
         <nav className="module-nav" aria-label="RinaSpace">
           {navItems.map(({ key, icon: Icon }) => (
-            <button
-              className={`module-nav-item ${currentView === key ? "active" : ""}`}
-              key={key}
-              onClick={() => setCurrentView(key)}
-            >
-              <Icon size={17} />
-              {t.nav[key]}
-            </button>
+            <div className="module-nav-group" key={key}>
+              <button
+                className={`module-nav-item ${currentView === key ? "active" : ""}`}
+                onClick={() => {
+                  setCurrentView(key);
+                  if (key === "notes") setNoteMode("idea");
+                }}
+              >
+                <Icon size={17} />
+                {t.nav[key]}
+              </button>
+              {key === "notes" ? (
+                <div className="submenu">
+                  <button
+                    className={currentView === "notes" && noteMode === "idea" ? "active" : ""}
+                    onClick={() => {
+                      setCurrentView("notes");
+                      setNoteMode("idea");
+                    }}
+                  >
+                    {t.ideaNotes}
+                  </button>
+                  <button
+                    className={currentView === "notes" && noteMode === "study" ? "active" : ""}
+                    onClick={() => {
+                      setCurrentView("notes");
+                      setNoteMode("study");
+                      setNoteDraft((current) => ({ ...current, kind: "study" }));
+                    }}
+                  >
+                    {t.studyNotes}
+                  </button>
+                </div>
+              ) : null}
+            </div>
           ))}
         </nav>
 
@@ -1403,10 +1477,15 @@ export default function App() {
         {currentView === "notes" ? (
           <NotesView
             addNote={addNote}
+            deleteNote={deleteNote}
+            editStudyNote={editStudyNote}
+            editingStudyId={editingStudyId}
             ideaPage={ideaPage}
             language={language}
+            noteMode={noteMode}
             noteDraft={noteDraft}
             notes={notes}
+            saveStudyNote={saveStudyNote}
             setIdeaPage={setIdeaPage}
             setNoteDraft={setNoteDraft}
             t={t}
@@ -1825,21 +1904,33 @@ function CalendarView({ goals, language, t }: { goals: Goal[]; language: Languag
 
 function NotesView({
   addNote,
+  deleteNote,
+  editStudyNote,
+  editingStudyId,
   ideaPage,
   language,
+  noteMode,
   noteDraft,
   notes,
+  saveStudyNote,
   setIdeaPage,
   setNoteDraft,
   t,
 }: {
   addNote: (event: FormEvent<HTMLFormElement>) => void;
+  deleteNote: (id: string) => void;
+  editStudyNote: (note: NoteItem) => void;
+  editingStudyId: string | null;
   ideaPage: number;
   language: Language;
-  noteDraft: { kind: NoteKind; themeId: string; title: string; body: string };
+  noteMode: NoteKind;
+  noteDraft: { kind: NoteKind; themeId: string; title: string; body: string; answers: Record<string, string> };
   notes: NoteItem[];
+  saveStudyNote: () => void;
   setIdeaPage: (page: number) => void;
-  setNoteDraft: (draft: { kind: NoteKind; themeId: string; title: string; body: string }) => void;
+  setNoteDraft: Dispatch<
+    SetStateAction<{ kind: NoteKind; themeId: string; title: string; body: string; answers: Record<string, string> }>
+  >;
   t: Texts;
 }) {
   const templates = studyTemplates[language];
@@ -1850,48 +1941,113 @@ function NotesView({
   const safePage = Math.min(ideaPage, totalPages);
   const visibleIdeas = ideaNotes.slice((safePage - 1) * 15, safePage * 15);
 
+  if (noteMode === "study") {
+    return (
+      <section className="study-notes-workspace">
+        <div className="work-panel study-editor">
+          <div className="section-head">
+            <label className="field theme-select">
+              <span>{t.noteTheme}</span>
+              <select
+                value={noteDraft.themeId}
+                onChange={(event) =>
+                  setNoteDraft({ ...noteDraft, kind: "study", themeId: event.target.value, answers: {} })
+                }
+              >
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="study-actions">
+              <button className="primary small" onClick={saveStudyNote} type="button">
+                {t.save}
+              </button>
+              <button
+                className="ghost small"
+                disabled={!editingStudyId}
+                onClick={() => {
+                  const note = studyNotes.find((item) => item.id === editingStudyId);
+                  if (note) editStudyNote(note);
+                }}
+                type="button"
+              >
+                {t.edit}
+              </button>
+              <button
+                className="ghost small danger-action"
+                disabled={!editingStudyId}
+                onClick={() => editingStudyId && deleteNote(editingStudyId)}
+                type="button"
+              >
+                {t.delete}
+              </button>
+            </div>
+          </div>
+
+          <label className="field">
+            <span>{t.title}</span>
+            <input
+              placeholder={selectedTemplate.title}
+              value={noteDraft.title}
+              onChange={(event) => setNoteDraft({ ...noteDraft, kind: "study", title: event.target.value })}
+            />
+          </label>
+
+          <div className="template-answer-list">
+            {selectedTemplate.items.map((item, index) => {
+              const key = `${selectedTemplate.id}-${index}`;
+              return (
+                <label className="field question-field" key={key}>
+                  <span>{item}</span>
+                  <textarea
+                    rows={3}
+                    value={noteDraft.answers?.[key] ?? ""}
+                    onChange={(event) =>
+                      setNoteDraft({
+                        ...noteDraft,
+                        kind: "study",
+                        answers: { ...(noteDraft.answers ?? {}), [key]: event.target.value },
+                      })
+                    }
+                  />
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <aside className="work-panel stack-list">
+          <h2>{t.studyNotes}</h2>
+          {studyNotes.length ? (
+            studyNotes.map((note) => (
+              <button className={`study-note-card ${editingStudyId === note.id ? "active" : ""}`} key={note.id} onClick={() => editStudyNote(note)}>
+                <strong>{note.title}</strong>
+                <span>{templates.find((template) => template.id === note.themeId)?.title ?? t.studyNotes}</span>
+              </button>
+            ))
+          ) : (
+            <div className="empty compact-empty">{t.emptyNotes}</div>
+          )}
+        </aside>
+      </section>
+    );
+  }
+
   return (
     <section className="notes-workspace">
       <form className="work-panel stack-form note-compose" onSubmit={addNote}>
         <div className="section-head">
-          <h2>{t.notesTitle}</h2>
-          <div className="segmented" role="group" aria-label={t.notesTitle}>
-            <button
-              className={`segment ${noteDraft.kind === "idea" ? "active" : ""}`}
-              type="button"
-              onClick={() => setNoteDraft({ ...noteDraft, kind: "idea" })}
-            >
-              {t.ideaNotes}
-            </button>
-            <button
-              className={`segment ${noteDraft.kind === "study" ? "active" : ""}`}
-              type="button"
-              onClick={() => setNoteDraft({ ...noteDraft, kind: "study" })}
-            >
-              {t.studyNotes}
-            </button>
-          </div>
+          <h2>{t.ideaNotes}</h2>
         </div>
-
-        {noteDraft.kind === "study" ? (
-          <label className="field theme-select">
-            <span>{t.noteTheme}</span>
-            <select value={noteDraft.themeId} onChange={(event) => setNoteDraft({ ...noteDraft, themeId: event.target.value })}>
-              {templates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-
         <label className="field">
           <span>{t.title}</span>
           <input
             placeholder={t.noteTitlePlaceholder}
-            value={noteDraft.title}
-            onChange={(event) => setNoteDraft({ ...noteDraft, title: event.target.value })}
+            value={noteDraft.kind === "idea" ? noteDraft.title : ""}
+            onChange={(event) => setNoteDraft({ ...noteDraft, kind: "idea", title: event.target.value })}
           />
         </label>
         <label className="field">
@@ -1899,8 +2055,8 @@ function NotesView({
           <textarea
             rows={8}
             placeholder={t.noteBodyPlaceholder}
-            value={noteDraft.body}
-            onChange={(event) => setNoteDraft({ ...noteDraft, body: event.target.value })}
+            value={noteDraft.kind === "idea" ? noteDraft.body : ""}
+            onChange={(event) => setNoteDraft({ ...noteDraft, kind: "idea", body: event.target.value })}
           />
         </label>
         <button className="primary" type="submit">
@@ -1926,6 +2082,9 @@ function NotesView({
           <div className="sticky-grid">
             {visibleIdeas.map((note) => (
               <article className="sticky-note" key={note.id}>
+                <button className="delete-note" onClick={() => deleteNote(note.id)} title={t.delete} type="button">
+                  <X size={14} />
+                </button>
                 <strong>{note.title}</strong>
                 <p>{note.body}</p>
               </article>
@@ -1934,35 +2093,6 @@ function NotesView({
         ) : (
           <div className="empty">{t.emptyNotes}</div>
         )}
-      </div>
-
-      <div className="work-panel study-panel">
-        <div className="section-head">
-          <h2>{t.studyNotes}</h2>
-          <span className="sync-pill">{selectedTemplate.title}</span>
-        </div>
-        <p className="helper-text">{t.studyTemplateHint}</p>
-        <div className="template-card">
-          <h3>{t.noteTemplate}</h3>
-          <ol>
-            {selectedTemplate.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ol>
-        </div>
-        <div className="study-note-list">
-          {studyNotes.length ? (
-            studyNotes.map((note) => (
-              <article className="note-card" key={note.id}>
-                <small>{templates.find((template) => template.id === note.themeId)?.title ?? t.studyNotes}</small>
-              <strong>{note.title}</strong>
-              <p>{note.body}</p>
-            </article>
-            ))
-        ) : (
-            <div className="empty compact-empty">{t.emptyNotes}</div>
-        )}
-        </div>
       </div>
     </section>
   );

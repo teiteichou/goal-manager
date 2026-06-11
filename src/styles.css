@@ -87,6 +87,11 @@ button svg {
   gap: 8px;
 }
 
+.module-nav-group {
+  display: grid;
+  gap: 6px;
+}
+
 .nav-item,
 .segment,
 .ghost,
@@ -129,6 +134,28 @@ button svg {
   color: var(--ink);
   background: #fff;
   border-color: var(--line);
+}
+
+.submenu {
+  display: grid;
+  gap: 4px;
+  padding-left: 28px;
+}
+
+.submenu button {
+  min-height: 32px;
+  padding: 0 10px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.submenu button.active,
+.submenu button:hover {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
 }
 
 .focus-panel,
@@ -342,6 +369,12 @@ h3 {
   grid-template-columns: 320px minmax(0, 1fr);
 }
 
+.study-notes-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 18px;
+}
+
 .dashboard-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -449,6 +482,7 @@ h3 {
 }
 
 .sticky-note {
+  position: relative;
   display: grid;
   align-content: start;
   gap: 8px;
@@ -458,6 +492,20 @@ h3 {
   border: 1px solid #efd876;
   border-radius: 8px;
   box-shadow: 0 10px 24px rgba(126, 104, 28, 0.1);
+}
+
+.delete-note {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  color: #8f2e3a;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(143, 46, 58, 0.2);
+  border-radius: 999px;
 }
 
 .sticky-note:nth-child(3n + 2) {
@@ -519,6 +567,59 @@ h3 {
 .note-card small {
   color: var(--accent);
   font-weight: 800;
+}
+
+.study-editor {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.study-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.danger-action {
+  color: #8f2e3a;
+}
+
+.danger-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.template-answer-list {
+  display: grid;
+  gap: 14px;
+}
+
+.question-field textarea {
+  min-height: 94px;
+}
+
+.study-note-card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  color: var(--ink);
+  background: #fbfcfe;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.study-note-card.active,
+.study-note-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.study-note-card span {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .timeline-list {
@@ -924,6 +1025,7 @@ h3 {
   .two-column-work,
   .code-workspace,
   .notes-workspace,
+  .study-notes-workspace,
   .code-editor-grid {
     grid-template-columns: 1fr;
   }
