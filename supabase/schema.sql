@@ -27,6 +27,8 @@ with check (true);
 
 create table if not exists public.notes (
   id uuid primary key,
+  kind text not null default 'idea' check (kind in ('idea', 'study')),
+  theme_id text,
   title text not null,
   body text not null default '',
   created_at timestamptz not null default now(),

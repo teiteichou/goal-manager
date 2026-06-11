@@ -331,10 +331,15 @@ h3 {
 
 .dashboard-grid,
 .two-column-work,
-.code-workspace {
+.code-workspace,
+.notes-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 18px;
+}
+
+.notes-workspace {
+  grid-template-columns: 320px minmax(0, 1fr);
 }
 
 .dashboard-grid {
@@ -414,6 +419,106 @@ h3 {
   color: #34404c;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.note-compose {
+  align-self: start;
+}
+
+.theme-select {
+  grid-column: 1 / -1;
+}
+
+.pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pager button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.sticky-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sticky-note {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 132px;
+  padding: 13px;
+  background: #fff7c9;
+  border: 1px solid #efd876;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(126, 104, 28, 0.1);
+}
+
+.sticky-note:nth-child(3n + 2) {
+  background: #e9f6ff;
+  border-color: #bfe3f7;
+}
+
+.sticky-note:nth-child(3n) {
+  background: #f3ebff;
+  border-color: #d9c4f6;
+}
+
+.sticky-note strong,
+.sticky-note p {
+  overflow-wrap: anywhere;
+}
+
+.sticky-note p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #3a3f46;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.study-panel {
+  grid-column: 2;
+}
+
+.template-card {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 14px;
+  background: #fbfcfe;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.template-card ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.template-card li {
+  line-height: 1.5;
+}
+
+.study-note-list {
+  display: grid;
+  gap: 10px;
+}
+
+.note-card small {
+  color: var(--accent);
+  font-weight: 800;
 }
 
 .timeline-list {
@@ -818,8 +923,17 @@ h3 {
   .dashboard-grid,
   .two-column-work,
   .code-workspace,
+  .notes-workspace,
   .code-editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .study-panel {
+    grid-column: auto;
+  }
+
+  .sticky-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .sidebar {
@@ -871,5 +985,9 @@ h3 {
 
   .segmented {
     overflow-x: auto;
+  }
+
+  .sticky-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -34,9 +34,12 @@ type Language = "ja" | "en" | "zh";
 type ViewKey = "dashboard" | "goals" | "calendar" | "notes" | "finance" | "code";
 type FinanceKind = "income" | "expense";
 type CodeLanguage = "java" | "oracle" | "react" | "javascript";
+type NoteKind = "idea" | "study";
 
 type NoteItem = {
   id: string;
+  kind?: NoteKind;
+  themeId?: string;
   title: string;
   body: string;
   createdAt: string;
@@ -147,6 +150,14 @@ type Texts = {
   noteBodyPlaceholder: string;
   addNote: string;
   emptyNotes: string;
+  ideaNotes: string;
+  studyNotes: string;
+  noteTheme: string;
+  noteTemplate: string;
+  stickyPage: (page: number, total: number) => string;
+  previousPage: string;
+  nextPage: string;
+  studyTemplateHint: string;
   financeTitle: string;
   financeNamePlaceholder: string;
   amount: string;
@@ -287,6 +298,14 @@ const translations: Record<Language, Texts> = {
     noteBodyPlaceholder: "考え、学び、復盤を書き留める",
     addNote: "ノートを追加",
     emptyNotes: "ノートはまだありません。",
+    ideaNotes: "アイデア記録",
+    studyNotes: "学習ノート",
+    noteTheme: "ノートテーマ",
+    noteTemplate: "テーマテンプレート",
+    stickyPage: (page, total) => `${page} / ${total}`,
+    previousPage: "前へ",
+    nextPage: "次へ",
+    studyTemplateHint: "テーマを選ぶと、学習ノート用の問いが表示されます。",
     financeTitle: "記帳",
     financeNamePlaceholder: "例：参考書、給料、カフェ",
     amount: "金額",
@@ -433,6 +452,14 @@ const translations: Record<Language, Texts> = {
     noteBodyPlaceholder: "Capture thoughts, learnings, and reviews",
     addNote: "Add note",
     emptyNotes: "No notes yet.",
+    ideaNotes: "Idea notes",
+    studyNotes: "Study notes",
+    noteTheme: "Note theme",
+    noteTemplate: "Theme template",
+    stickyPage: (page, total) => `${page} / ${total}`,
+    previousPage: "Previous",
+    nextPage: "Next",
+    studyTemplateHint: "Choose a theme to display a study-note template.",
     financeTitle: "Finance",
     financeNamePlaceholder: "Example: textbook, salary, cafe",
     amount: "Amount",
@@ -579,6 +606,14 @@ const translations: Record<Language, Texts> = {
     noteBodyPlaceholder: "记录想法、学习内容和复盘",
     addNote: "添加笔记",
     emptyNotes: "还没有笔记。",
+    ideaNotes: "灵感记录",
+    studyNotes: "学习笔记",
+    noteTheme: "笔记主题",
+    noteTemplate: "主题模板",
+    stickyPage: (page, total) => `${page} / ${total}`,
+    previousPage: "上一页",
+    nextPage: "下一页",
+    studyTemplateHint: "选择主题后，会显示对应的学习笔记模板。",
     financeTitle: "记账",
     financeNamePlaceholder: "例：参考书、工资、咖啡",
     amount: "金额",
@@ -626,6 +661,78 @@ const codeLanguageLabels: Record<CodeLanguage, string> = {
   oracle: "Oracle SQL",
   react: "React",
   javascript: "JavaScript",
+};
+
+const studyTemplates: Record<Language, Array<{ id: string; title: string; items: string[] }>> = {
+  ja: [
+    {
+      id: "tool",
+      title: "ツール類ノート",
+      items: ["それは何か？", "何の問題を解決するために使うか？", "核心概念は何か？", "よく使う操作は何か？", "実務でどう使うか？", "よくある落とし穴は何か？", "ベストプラクティスは何か？", "自分の使用場面は何か？"],
+    },
+    {
+      id: "tech-framework",
+      title: "技術 / フレームワーク類ノート",
+      items: ["それは何か？", "システムのどの層を担当するか？", "どんな技術課題を解決するか？", "核心概念 / アーキテクチャは何か？", "最小実行例は何か？", "よく使う設定は何か？", "実プロジェクトでどう使うか？", "よくあるエラーと調査方法は何か？", "面接ではどう聞かれるか？"],
+    },
+    {
+      id: "syntax",
+      title: "プログラミング文法類ノート",
+      items: ["この文法は何か？", "なぜ必要か？", "基本の書き方は何か？", "よくある使い方は何か？", "似た文法との違いは何か？", "間違えやすい点はどこか？", "実コード例", "自分で一度書く"],
+    },
+    {
+      id: "database-sql",
+      title: "データベース / SQL 類ノート",
+      items: ["このオブジェクト / 文法は何か？", "どんなデータ課題を解決するか？", "基本文法", "実務例", "実行順序 / 処理ロジック", "性能上の注意点", "よくあるエラー", "SQL の調査方法", "仕事で出会った実例"],
+    },
+    {
+      id: "project-review",
+      title: "プロジェクト経験 / 作業復盤ノート",
+      items: ["問題現象は何か？", "影響範囲は何か？", "最初に疑った原因は何か？", "実際の原因は何か？", "調査過程", "最終的な解決方法", "関係する表 / プログラム / 設定", "次回どう避けるか？", "職務経歴書に書ける表現"],
+    },
+    {
+      id: "interview",
+      title: "面接準備類ノート",
+      items: ["このポジションは何を求めているか？", "自分にはどんな一致経験があるか？", "不足点は何か？", "よく聞かれる質問", "自分の回答テンプレート", "プロジェクト経験をどう整理するか？", "日本語 / 英語表現", "面接官への逆質問"],
+    },
+    {
+      id: "portfolio",
+      title: "ポートフォリオ類ノート",
+      items: ["プロジェクト名", "このプロジェクトは何を解決するか？", "使用技術", "システム構成", "核心機能", "データベース設計", "API 設計", "デプロイ方式", "出会った問題と解決方法", "面接官に見せられる亮点"],
+    },
+    {
+      id: "japanese",
+      title: "日本語学習類ノート",
+      items: ["原文", "自然な表現", "中国語の意味", "ニュアンスの違い", "使用場面", "似た表現", "自分の例文"],
+    },
+    {
+      id: "english",
+      title: "英語学習類ノート",
+      items: ["原文", "自然な表現", "中国語の意味", "ニュアンスの違い", "使用場面", "似た表現", "自分の例文"],
+    },
+  ],
+  en: [
+    { id: "tool", title: "Tool Notes", items: ["What is it?", "What problem does it solve?", "What are the core concepts?", "What are the most common operations?", "How is it used at work?", "What are common pitfalls?", "What are best practices?", "What is my own use case?"] },
+    { id: "tech-framework", title: "Technology / Framework Notes", items: ["What is it?", "Which layer does it handle in the system?", "What technical problem does it solve?", "What are the core concepts / architecture?", "What is the smallest runnable example?", "What configurations are commonly used?", "How is it used in real projects?", "What are common errors and debugging methods?", "How might interviews ask about it?"] },
+    { id: "syntax", title: "Programming Syntax Notes", items: ["What is this syntax?", "Why is it needed?", "What is the basic form?", "What are common uses?", "How is it different from similar syntax?", "Where is it easy to make mistakes?", "Real code example", "Write it once myself"] },
+    { id: "database-sql", title: "Database / SQL Notes", items: ["What is this object / syntax?", "What data problem does it solve?", "Basic syntax", "Real business example", "Execution order / processing logic", "Performance notes", "Common errors", "How to debug SQL", "A real case from work"] },
+    { id: "project-review", title: "Project Experience / Work Review Notes", items: ["What was the symptom?", "What was the impact scope?", "What was the first suspected cause?", "What was the actual cause?", "Investigation process", "Final solution", "Related tables / programs / configuration", "How to avoid it next time?", "Resume-ready expression"] },
+    { id: "interview", title: "Interview Preparation Notes", items: ["What does this role require?", "Which matching experiences do I have now?", "What gaps exist?", "Common questions", "My answer template", "How to package project experience?", "Japanese / English expressions", "Questions to ask the interviewer"] },
+    { id: "portfolio", title: "Portfolio Notes", items: ["Project name", "What problem does this project solve?", "Technologies used", "System architecture", "Core features", "Database design", "API design", "Deployment method", "Problems encountered and solutions", "Highlights to show interviewers"] },
+    { id: "japanese", title: "Japanese Learning Notes", items: ["Original sentence", "Natural expression", "Chinese meaning", "Tone difference", "Usage scene", "Similar expressions", "My own example sentence"] },
+    { id: "english", title: "English Learning Notes", items: ["Original sentence", "Natural expression", "Chinese meaning", "Tone difference", "Usage scene", "Similar expressions", "My own example sentence"] },
+  ],
+  zh: [
+    { id: "tool", title: "工具类笔记", items: ["它是什么？", "它是用来解决什么问题的？", "它的核心概念是什么？", "最常用的操作是什么？", "实际工作中怎么用？", "常见坑是什么？", "最佳实践是什么？", "我自己的使用场景是什么？"] },
+    { id: "tech-framework", title: "技术 / 框架类笔记", items: ["它是什么？", "它在系统里负责哪一层？", "它解决什么技术问题？", "核心概念 / 架构是什么？", "最小可运行例子是什么？", "常用配置是什么？", "实际项目中怎么用？", "常见错误和排查方法是什么？", "面试会怎么问？"] },
+    { id: "syntax", title: "编程语法类笔记", items: ["这个语法是什么？", "为什么需要它？", "基本写法是什么？", "常见用法有哪些？", "和相似语法有什么区别？", "容易错在哪里？", "实际代码例子", "我自己写一遍"] },
+    { id: "database-sql", title: "数据库 / SQL 类笔记", items: ["这个对象 / 语法是什么？", "用来解决什么数据问题？", "基本语法", "实际业务例子", "执行顺序 / 处理逻辑", "性能注意点", "常见错误", "排查 SQL 的方法", "工作中遇到的真实案例"] },
+    { id: "project-review", title: "项目经验 / 工作复盘类笔记", items: ["问题现象是什么？", "影响范围是什么？", "最初怀疑原因是什么？", "实际原因是什么？", "调查过程", "最终解决方法", "涉及到的表 / 程序 / 配置", "下次怎么避免？", "可以写进简历的表达"] },
+    { id: "interview", title: "面试准备类笔记", items: ["这个岗位要求什么？", "我现在有哪些匹配经验？", "缺口是什么？", "常问问题", "我的回答模板", "项目经验怎么包装？", "日语 / 英语表达", "反问面试官的问题"] },
+    { id: "portfolio", title: "作品集类笔记", items: ["项目名称", "这个项目解决什么问题？", "使用技术", "系统架构", "核心功能", "数据库设计", "API 设计", "部署方式", "遇到的问题和解决方法", "可以展示给面试官的亮点"] },
+    { id: "japanese", title: "日语学习类笔记", items: ["原句", "自然表达", "中文意思", "语气区别", "使用场景", "相似表达", "我自己的例句"] },
+    { id: "english", title: "英语学习类笔记", items: ["原句", "自然表达", "中文意思", "语气区别", "使用场景", "相似表达", "我自己的例句"] },
+  ],
 };
 
 const defaultCode = `const scores = [82, 95, 67];
@@ -741,7 +848,13 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<"waiting" | "local" | "synced">(
     isSupabaseConfigured ? "waiting" : "local",
   );
-  const [noteDraft, setNoteDraft] = useState({ title: "", body: "" });
+  const [noteDraft, setNoteDraft] = useState({
+    kind: "idea" as NoteKind,
+    themeId: "tool",
+    title: "",
+    body: "",
+  });
+  const [ideaPage, setIdeaPage] = useState(1);
   const [financeDraft, setFinanceDraft] = useState({
     title: "",
     amount: "",
@@ -1001,13 +1114,16 @@ export default function App() {
     setNotes((current) => [
       {
         id: crypto.randomUUID(),
+        kind: noteDraft.kind,
+        themeId: noteDraft.kind === "study" ? noteDraft.themeId : undefined,
         title: noteDraft.title.trim() || t.notesTitle,
         body: noteDraft.body.trim(),
         createdAt: new Date().toISOString(),
       },
       ...current,
     ]);
-    setNoteDraft({ title: "", body: "" });
+    setIdeaPage(1);
+    setNoteDraft((current) => ({ ...current, title: "", body: "" }));
   }
 
   function addFinanceEntry(event: FormEvent<HTMLFormElement>) {
@@ -1285,7 +1401,16 @@ export default function App() {
         {currentView === "calendar" ? <CalendarView goals={goals} language={language} t={t} /> : null}
 
         {currentView === "notes" ? (
-          <NotesView addNote={addNote} noteDraft={noteDraft} notes={notes} setNoteDraft={setNoteDraft} t={t} />
+          <NotesView
+            addNote={addNote}
+            ideaPage={ideaPage}
+            language={language}
+            noteDraft={noteDraft}
+            notes={notes}
+            setIdeaPage={setIdeaPage}
+            setNoteDraft={setNoteDraft}
+            t={t}
+          />
         ) : null}
 
         {currentView === "finance" ? (
@@ -1700,21 +1825,67 @@ function CalendarView({ goals, language, t }: { goals: Goal[]; language: Languag
 
 function NotesView({
   addNote,
+  ideaPage,
+  language,
   noteDraft,
   notes,
+  setIdeaPage,
   setNoteDraft,
   t,
 }: {
   addNote: (event: FormEvent<HTMLFormElement>) => void;
-  noteDraft: { title: string; body: string };
+  ideaPage: number;
+  language: Language;
+  noteDraft: { kind: NoteKind; themeId: string; title: string; body: string };
   notes: NoteItem[];
-  setNoteDraft: (draft: { title: string; body: string }) => void;
+  setIdeaPage: (page: number) => void;
+  setNoteDraft: (draft: { kind: NoteKind; themeId: string; title: string; body: string }) => void;
   t: Texts;
 }) {
+  const templates = studyTemplates[language];
+  const selectedTemplate = templates.find((template) => template.id === noteDraft.themeId) ?? templates[0];
+  const ideaNotes = notes.filter((note) => (note.kind ?? "idea") === "idea");
+  const studyNotes = notes.filter((note) => note.kind === "study");
+  const totalPages = Math.max(1, Math.ceil(ideaNotes.length / 15));
+  const safePage = Math.min(ideaPage, totalPages);
+  const visibleIdeas = ideaNotes.slice((safePage - 1) * 15, safePage * 15);
+
   return (
-    <section className="two-column-work">
-      <form className="work-panel stack-form" onSubmit={addNote}>
-        <h2>{t.notesTitle}</h2>
+    <section className="notes-workspace">
+      <form className="work-panel stack-form note-compose" onSubmit={addNote}>
+        <div className="section-head">
+          <h2>{t.notesTitle}</h2>
+          <div className="segmented" role="group" aria-label={t.notesTitle}>
+            <button
+              className={`segment ${noteDraft.kind === "idea" ? "active" : ""}`}
+              type="button"
+              onClick={() => setNoteDraft({ ...noteDraft, kind: "idea" })}
+            >
+              {t.ideaNotes}
+            </button>
+            <button
+              className={`segment ${noteDraft.kind === "study" ? "active" : ""}`}
+              type="button"
+              onClick={() => setNoteDraft({ ...noteDraft, kind: "study" })}
+            >
+              {t.studyNotes}
+            </button>
+          </div>
+        </div>
+
+        {noteDraft.kind === "study" ? (
+          <label className="field theme-select">
+            <span>{t.noteTheme}</span>
+            <select value={noteDraft.themeId} onChange={(event) => setNoteDraft({ ...noteDraft, themeId: event.target.value })}>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
         <label className="field">
           <span>{t.title}</span>
           <input
@@ -1738,18 +1909,60 @@ function NotesView({
         </button>
       </form>
 
-      <div className="work-panel stack-list">
-        <h2>{t.notesTitle}</h2>
-        {notes.length ? (
-          notes.map((note) => (
-            <article className="note-card" key={note.id}>
-              <strong>{note.title}</strong>
-              <p>{note.body}</p>
-            </article>
-          ))
+      <div className="work-panel">
+        <div className="section-head">
+          <h2>{t.ideaNotes}</h2>
+          <div className="pager">
+            <button className="ghost small" disabled={safePage <= 1} onClick={() => setIdeaPage(safePage - 1)}>
+              {t.previousPage}
+            </button>
+            <span>{t.stickyPage(safePage, totalPages)}</span>
+            <button className="ghost small" disabled={safePage >= totalPages} onClick={() => setIdeaPage(safePage + 1)}>
+              {t.nextPage}
+            </button>
+          </div>
+        </div>
+        {visibleIdeas.length ? (
+          <div className="sticky-grid">
+            {visibleIdeas.map((note) => (
+              <article className="sticky-note" key={note.id}>
+                <strong>{note.title}</strong>
+                <p>{note.body}</p>
+              </article>
+            ))}
+          </div>
         ) : (
           <div className="empty">{t.emptyNotes}</div>
         )}
+      </div>
+
+      <div className="work-panel study-panel">
+        <div className="section-head">
+          <h2>{t.studyNotes}</h2>
+          <span className="sync-pill">{selectedTemplate.title}</span>
+        </div>
+        <p className="helper-text">{t.studyTemplateHint}</p>
+        <div className="template-card">
+          <h3>{t.noteTemplate}</h3>
+          <ol>
+            {selectedTemplate.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
+        </div>
+        <div className="study-note-list">
+          {studyNotes.length ? (
+            studyNotes.map((note) => (
+              <article className="note-card" key={note.id}>
+                <small>{templates.find((template) => template.id === note.themeId)?.title ?? t.studyNotes}</small>
+              <strong>{note.title}</strong>
+              <p>{note.body}</p>
+            </article>
+            ))
+        ) : (
+            <div className="empty compact-empty">{t.emptyNotes}</div>
+        )}
+        </div>
       </div>
     </section>
   );
