@@ -36,6 +36,16 @@ type FinanceKind = "income" | "expense";
 type CodeLanguage = "java" | "oracle" | "react" | "javascript";
 type NoteKind = "idea" | "study";
 
+type CalendarEvent = {
+  id: string;
+  date: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  memo: string;
+  createdAt: string;
+};
+
 type NoteItem = {
   id: string;
   kind?: NoteKind;
@@ -672,6 +682,7 @@ const languageStoreKey = "rinaspace-language";
 const notesStoreKey = "rinaspace-notes-v1";
 const financeStoreKey = "rinaspace-finance-v1";
 const codeStoreKey = "rinaspace-code-snippets-v1";
+const calendarStoreKey = "rinaspace-calendar-events-v1";
 
 const codeLanguageLabels: Record<CodeLanguage, string> = {
   java: "Java",
@@ -765,6 +776,61 @@ function toLocalInputValue(date: Date) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+function toDateKey(date: Date) {
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function nthWeekdayOfMonth(year: number, monthIndex: number, weekday: number, nth: number) {
+  const first = new Date(year, monthIndex, 1);
+  const offset = (weekday - first.getDay() + 7) % 7;
+  return 1 + offset + (nth - 1) * 7;
+}
+
+function baseJapaneseHoliday(date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const springEquinox = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+  const autumnEquinox = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+
+  if (month === 1 && (day === 1 || day === nthWeekdayOfMonth(year, 0, 1, 2))) return true;
+  if (month === 2 && (day === 11 || day === 23)) return true;
+  if (month === 3 && day === springEquinox) return true;
+  if (month === 4 && day === 29) return true;
+  if (month === 5 && [3, 4, 5].includes(day)) return true;
+  if (month === 7 && day === nthWeekdayOfMonth(year, 6, 1, 3)) return true;
+  if (month === 8 && day === 11) return true;
+  if (month === 9 && (day === nthWeekdayOfMonth(year, 8, 1, 3) || day === autumnEquinox)) return true;
+  if (month === 10 && day === nthWeekdayOfMonth(year, 9, 1, 2)) return true;
+  if (month === 11 && (day === 3 || day === 23)) return true;
+  return false;
+}
+
+function isJapaneseHoliday(date: Date) {
+  if (baseJapaneseHoliday(date)) return true;
+
+  const previous = new Date(date);
+  previous.setDate(date.getDate() - 1);
+  const next = new Date(date);
+  next.setDate(date.getDate() + 1);
+  if (baseJapaneseHoliday(previous) && baseJapaneseHoliday(next)) return true;
+
+  const cursor = new Date(date);
+  cursor.setDate(date.getDate() - 1);
+  while (cursor.getMonth() === date.getMonth() || cursor.getDate() >= 1) {
+    if (!baseJapaneseHoliday(cursor)) return false;
+    if (cursor.getDay() === 0) return true;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return false;
+}
+
 function hoursUntil(dateValue: string) {
   return (new Date(dateValue).getTime() - Date.now()) / 36e5;
 }
@@ -849,6 +915,7 @@ export default function App() {
   const [notes, setNotes] = useState<NoteItem[]>(() => readJson(notesStoreKey, []));
   const [financeEntries, setFinanceEntries] = useState<FinanceEntry[]>(() => readJson(financeStoreKey, []));
   const [codeSnippets, setCodeSnippets] = useState<CodeSnippet[]>(() => readJson(codeStoreKey, []));
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => readJson(calendarStoreKey, []));
   const [filter, setFilter] = useState<GoalCategory | "all">("all");
   const [view, setView] = useState<GoalStatus>("active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -945,6 +1012,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(codeStoreKey, JSON.stringify(codeSnippets));
   }, [codeSnippets]);
+
+  useEffect(() => {
+    localStorage.setItem(calendarStoreKey, JSON.stringify(calendarEvents));
+  }, [calendarEvents]);
 
   useEffect(() => {
     if (!timerRunning) return undefined;
@@ -1526,7 +1597,9 @@ export default function App() {
           />
         ) : null}
 
-        {currentView === "calendar" ? <CalendarView goals={goals} language={language} t={t} /> : null}
+        {currentView === "calendar" ? (
+          <CalendarView calendarEvents={calendarEvents} goals={goals} language={language} setCalendarEvents={setCalendarEvents} t={t} />
+        ) : null}
 
         {currentView === "notes" ? (
           <NotesView
@@ -1935,29 +2008,292 @@ function GoalsView({
   );
 }
 
-function CalendarView({ goals, language, t }: { goals: Goal[]; language: Language; t: Texts }) {
-  const calendarGoals = [...goals].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+function CalendarView({
+  calendarEvents,
+  goals,
+  language,
+  setCalendarEvents,
+  t,
+}: {
+  calendarEvents: CalendarEvent[];
+  goals: Goal[];
+  language: Language;
+  setCalendarEvents: Dispatch<SetStateAction<CalendarEvent[]>>;
+  t: Texts;
+}) {
+  const todayKey = toDateKey(new Date());
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date());
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [eventDraft, setEventDraft] = useState({ title: "", startTime: "09:00", endTime: "10:00", memo: "" });
+  const locale = language === "ja" ? "ja-JP" : language === "zh" ? "zh-CN" : "en-US";
+  const copy = {
+    ja: {
+      selectedDate: "選択中の日付",
+      scheduleList: "予定リスト",
+      relatedGoals: "この日の目標",
+      noSchedules: "この日の予定はありません。",
+      newSchedule: "新しい予定",
+      addSchedule: "予定を追加",
+      updateSchedule: "予定を保存",
+      startTime: "開始時間",
+      endTime: "終了時間",
+      titlePlaceholder: "例：学習、面談、レビュー",
+      memoPlaceholder: "場所、準備物、メモなど",
+    },
+    en: {
+      selectedDate: "Selected date",
+      scheduleList: "Schedule list",
+      relatedGoals: "Goals on this day",
+      noSchedules: "No schedules for this day.",
+      newSchedule: "New schedule",
+      addSchedule: "Add schedule",
+      updateSchedule: "Save schedule",
+      startTime: "Start time",
+      endTime: "End time",
+      titlePlaceholder: "Example: study, meeting, review",
+      memoPlaceholder: "Location, preparation, notes",
+    },
+    zh: {
+      selectedDate: "当前选择日期",
+      scheduleList: "日程列表",
+      relatedGoals: "当天目标",
+      noSchedules: "当天暂无日程。",
+      newSchedule: "新日程",
+      addSchedule: "新增日程",
+      updateSchedule: "保存日程",
+      startTime: "开始时间",
+      endTime: "结束时间",
+      titlePlaceholder: "例：学习、面谈、复盘",
+      memoPlaceholder: "地点、准备事项、备注",
+    },
+  }[language];
+  const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
+  const monthTitle = new Intl.DateTimeFormat(locale, { year: "numeric", month: "long" }).format(visibleMonth);
+  const selectedDateLabel = new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date(`${selectedDate}T00:00:00`));
+
+  const calendarDays = useMemo(() => {
+    const year = visibleMonth.getFullYear();
+    const month = visibleMonth.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const firstVisible = new Date(year, month, 1 - firstOfMonth.getDay());
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(firstVisible);
+      date.setDate(firstVisible.getDate() + index);
+      return date;
+    });
+  }, [visibleMonth]);
+
+  const selectedEvents = calendarEvents
+    .filter((event) => event.date === selectedDate)
+    .sort((a, b) => `${a.startTime}${a.endTime}`.localeCompare(`${b.startTime}${b.endTime}`));
+  const selectedGoals = goals
+    .filter((goal) => toDateKey(new Date(goal.dueDate)) === selectedDate)
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  const currentMonth = monthKey(visibleMonth);
+
+  function resetEventDraft() {
+    setEditingEventId(null);
+    setEventDraft({ title: "", startTime: "09:00", endTime: "10:00", memo: "" });
+  }
+
+  function changeMonth(offset: number) {
+    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  }
+
+  function selectDay(date: Date) {
+    setSelectedDate(toDateKey(date));
+    setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    resetEventDraft();
+  }
+
+  function saveCalendarEvent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!eventDraft.title.trim()) return;
+    const existing = calendarEvents.find((item) => item.id === editingEventId);
+    const nextEvent: CalendarEvent = {
+      id: editingEventId ?? crypto.randomUUID(),
+      date: selectedDate,
+      title: eventDraft.title.trim(),
+      startTime: eventDraft.startTime,
+      endTime: eventDraft.endTime,
+      memo: eventDraft.memo.trim(),
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
+    };
+
+    setCalendarEvents((current) =>
+      existing ? current.map((item) => (item.id === existing.id ? nextEvent : item)) : [nextEvent, ...current],
+    );
+    resetEventDraft();
+  }
+
+  function editCalendarEvent(event: CalendarEvent) {
+    setEditingEventId(event.id);
+    setEventDraft({ title: event.title, startTime: event.startTime, endTime: event.endTime, memo: event.memo });
+  }
+
+  function deleteCalendarEvent(id: string) {
+    setCalendarEvents((current) => current.filter((event) => event.id !== id));
+    if (editingEventId === id) resetEventDraft();
+  }
+
   return (
-    <section className="work-panel">
-      <div className="section-head">
-        <h2>{t.calendarTitle}</h2>
+    <section className="calendar-workspace">
+      <div className="work-panel month-calendar">
+        <div className="calendar-month-head">
+          <button className="icon-btn" onClick={() => changeMonth(-1)} type="button" aria-label="Previous month">
+            {"‹"}
+          </button>
+          <div>
+            <span>{visibleMonth.getFullYear()}</span>
+            <h2>{monthTitle}</h2>
+          </div>
+          <button className="icon-btn" onClick={() => changeMonth(1)} type="button" aria-label="Next month">
+            {"›"}
+          </button>
+        </div>
+
+        <div className="calendar-weekdays" aria-hidden="true">
+          {weekdayLabels.map((day) => (
+            <span key={day}>{day}</span>
+          ))}
+        </div>
+
+        <div className="month-grid">
+          {calendarDays.map((date) => {
+            const dateKey = toDateKey(date);
+            const isToday = dateKey === todayKey;
+            const isSelected = dateKey === selectedDate;
+            const isCurrentMonth = monthKey(date) === currentMonth;
+            const hasEvents = calendarEvents.some((event) => event.date === dateKey);
+            const isSaturday = date.getDay() === 6;
+            const isSunday = date.getDay() === 0;
+            const isHoliday = isJapaneseHoliday(date);
+            return (
+              <button
+                className={`calendar-day ${isCurrentMonth ? "" : "muted"} ${isSaturday ? "saturday" : ""} ${isSunday ? "sunday" : ""} ${isHoliday ? "holiday" : ""} ${isToday ? "today" : ""} ${isSelected ? "selected" : ""}`}
+                key={dateKey}
+                onClick={() => selectDay(date)}
+                type="button"
+              >
+                <span>{date.getDate()}</span>
+                {hasEvents ? <i aria-label="Has schedule" /> : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div className="timeline-list">
-        {calendarGoals.length ? (
-          calendarGoals.map((goal) => (
-            <div className="timeline-item" key={goal.id}>
-              <time>{formatDate(new Date(goal.dueDate), language)}</time>
-              <div>
-                <strong>{goal.title}</strong>
-                <span className={`pill ${goal.status === "missed" ? "danger" : goal.status === "active" ? "" : "warn"}`}>
-                  {t.status[goal.status]}
-                </span>
-              </div>
+
+      <div className="work-panel schedule-panel">
+        <div className="section-head">
+          <div>
+            <span className="eyebrow">{copy.selectedDate}</span>
+            <h2>{selectedDateLabel}</h2>
+          </div>
+        </div>
+
+        <div className="schedule-columns">
+          <div className="schedule-list">
+            <h3>{copy.scheduleList}</h3>
+            {selectedEvents.length ? (
+              selectedEvents.map((event) => (
+                <article className={`schedule-card ${editingEventId === event.id ? "active" : ""}`} key={event.id}>
+                  <div className="schedule-time">
+                    <strong>{event.startTime}</strong>
+                    <span>{event.endTime}</span>
+                  </div>
+                  <div>
+                    <strong>{event.title}</strong>
+                    {event.memo ? <p>{event.memo}</p> : null}
+                    <div className="schedule-actions">
+                      <button className="ghost small" onClick={() => editCalendarEvent(event)} type="button">
+                        {t.edit}
+                      </button>
+                      <button className="ghost small danger-action" onClick={() => deleteCalendarEvent(event.id)} type="button">
+                        {t.delete}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="empty compact-empty">{copy.noSchedules}</div>
+            )}
+
+            <h3>{copy.relatedGoals}</h3>
+            {selectedGoals.length ? (
+              selectedGoals.map((goal) => (
+                <div className="timeline-item compact-timeline" key={goal.id}>
+                  <time>{formatDate(new Date(goal.dueDate), language)}</time>
+                  <div>
+                    <strong>{goal.title}</strong>
+                    <span className={`pill ${goal.status === "missed" ? "danger" : goal.status === "active" ? "" : "warn"}`}>
+                      {t.status[goal.status]}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="empty compact-empty">{t.calendarEmpty}</div>
+            )}
+          </div>
+
+          <form className="schedule-form" onSubmit={saveCalendarEvent}>
+            <div className="section-head tight">
+              <h3>{editingEventId ? copy.updateSchedule : copy.newSchedule}</h3>
+              {editingEventId ? (
+                <button className="ghost small" onClick={resetEventDraft} type="button">
+                  {t.cancel}
+                </button>
+              ) : null}
             </div>
-          ))
-        ) : (
-          <div className="empty">{t.calendarEmpty}</div>
-        )}
+            <label className="field">
+              <span>{t.title}</span>
+              <input
+                placeholder={copy.titlePlaceholder}
+                value={eventDraft.title}
+                onChange={(event) => setEventDraft((current) => ({ ...current, title: event.target.value }))}
+              />
+            </label>
+            <div className="time-fields">
+              <label className="field">
+                <span>{copy.startTime}</span>
+                <input
+                  type="time"
+                  value={eventDraft.startTime}
+                  onChange={(event) => setEventDraft((current) => ({ ...current, startTime: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>{copy.endTime}</span>
+                <input
+                  type="time"
+                  value={eventDraft.endTime}
+                  onChange={(event) => setEventDraft((current) => ({ ...current, endTime: event.target.value }))}
+                />
+              </label>
+            </div>
+            <label className="field">
+              <span>{t.memo}</span>
+              <textarea
+                rows={5}
+                placeholder={copy.memoPlaceholder}
+                value={eventDraft.memo}
+                onChange={(event) => setEventDraft((current) => ({ ...current, memo: event.target.value }))}
+              />
+            </label>
+            <button className="primary" type="submit">
+              <Plus size={16} />
+              {editingEventId ? copy.updateSchedule : copy.addSchedule}
+            </button>
+          </form>
+        </div>
       </div>
     </section>
   );

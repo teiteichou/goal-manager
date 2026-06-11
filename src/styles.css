@@ -971,6 +971,235 @@ h3 {
   font-size: 13px;
 }
 
+.calendar-workspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.month-calendar,
+.schedule-panel {
+  padding: 18px;
+}
+
+.calendar-month-head {
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.calendar-month-head h2 {
+  margin-top: 2px;
+  font-size: 26px;
+}
+
+.calendar-month-head span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.calendar-month-head .icon-btn {
+  width: 42px;
+  color: #f05a4f;
+  background: #fff;
+  border-color: transparent;
+  border-radius: 999px;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.calendar-month-head .icon-btn:hover {
+  background: #fff2f0;
+  border-color: #ffd5d0;
+}
+
+.calendar-weekdays,
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-weekdays {
+  margin-bottom: 8px;
+  color: #8b95a1;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.calendar-weekdays span:first-child {
+  color: #d84a3f;
+}
+
+.calendar-weekdays span:last-child {
+  color: #1f74d1;
+}
+
+.month-grid {
+  gap: 6px;
+}
+
+.calendar-day {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  aspect-ratio: 1;
+  place-items: center;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+.calendar-day span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.calendar-day:hover {
+  background: #f4f6f8;
+}
+
+.calendar-day.muted {
+  color: #b3bbc4;
+}
+
+.calendar-day.saturday {
+  color: #1f74d1;
+}
+
+.calendar-day.sunday,
+.calendar-day.holiday {
+  color: #d84a3f;
+}
+
+.calendar-day.muted.saturday {
+  color: #8cb8e8;
+}
+
+.calendar-day.muted.sunday,
+.calendar-day.muted.holiday {
+  color: #eca19a;
+}
+
+.calendar-day.today {
+  background: #fff5b8;
+  border-color: #f0d55f;
+}
+
+.calendar-day.today span {
+  color: var(--ink);
+  background: transparent;
+}
+
+.calendar-day.selected {
+  color: var(--ink);
+  background: #fff2f0;
+  border-color: #f05a4f;
+}
+
+.calendar-day.selected span {
+  color: #fff;
+  background: #f05a4f;
+}
+
+.calendar-day.today.selected {
+  background: #fff5b8;
+  border-color: #d9b93b;
+  box-shadow: inset 0 0 0 2px #f05a4f;
+}
+
+.calendar-day.today.selected span {
+  color: var(--ink);
+  background: transparent;
+}
+
+.calendar-day i {
+  position: absolute;
+  bottom: 7px;
+  width: 5px;
+  height: 5px;
+  background: #f05a4f;
+  border-radius: 999px;
+}
+
+.schedule-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 18px;
+}
+
+.schedule-list,
+.schedule-form {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.schedule-list h3 {
+  margin-top: 8px;
+}
+
+.schedule-card {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  background: #fbfcfd;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.schedule-card.active {
+  border-color: #f05a4f;
+  box-shadow: 0 0 0 3px #ffe1dc;
+}
+
+.schedule-time {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  color: #f05a4f;
+  font-weight: 800;
+}
+
+.schedule-time span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.schedule-card p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.compact-timeline {
+  grid-template-columns: 120px minmax(0, 1fr);
+}
+
 .empty {
   padding: 52px 18px;
   color: var(--muted);
@@ -1062,6 +1291,7 @@ h3 {
   .dashboard-grid,
   .two-column-work,
   .code-workspace,
+  .calendar-workspace,
   .notes-workspace,
   .study-notes-workspace,
   .code-editor-grid {
@@ -1113,6 +1343,9 @@ h3 {
   .summary-list,
   .finance-summary,
   .timeline-item,
+  .schedule-columns,
+  .schedule-card,
+  .time-fields,
   .code-toolbar {
     grid-template-columns: 1fr;
   }
