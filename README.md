@@ -26,6 +26,6 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 Supabase が未設定の場合、アプリはブラウザの localStorage に保存します。
 Supabase が設定されている場合は `goals` テーブルに目標を同期します。
-Notes と Finance は現在 localStorage を使用し、Supabase 用の `notes` / `finance_entries` テーブル定義も用意しています。
+Notes、Finance、Code は現在 localStorage を使用し、Supabase 用の `notes` / `finance_entries` / `code_snippets` テーブル定義も用意しています。
 
 テーブル作成 SQL は [supabase/schema.sql](/D:/myProjects/supabase/schema.sql) にあります。

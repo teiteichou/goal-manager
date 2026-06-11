@@ -85,3 +85,34 @@ for update
 to anon
 using (true)
 with check (true);
+
+create table if not exists public.code_snippets (
+  id uuid primary key,
+  title text not null,
+  language text not null,
+  code text not null default '',
+  notes text not null default '',
+  result text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.code_snippets enable row level security;
+
+create policy "Allow anonymous code snippet reads"
+on public.code_snippets
+for select
+to anon
+using (true);
+
+create policy "Allow anonymous code snippet inserts"
+on public.code_snippets
+for insert
+to anon
+with check (true);
+
+create policy "Allow anonymous code snippet updates"
+on public.code_snippets
+for update
+to anon
+using (true)
+with check (true);

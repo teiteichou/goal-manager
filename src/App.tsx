@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarDays,
   Check,
+  Code2,
   Copy,
   Edit3,
   Languages,
@@ -30,8 +31,9 @@ import { isSupabaseConfigured } from "./supabaseClient";
 import type { ExtendReason, Goal, GoalCategory, GoalFormValues, GoalStatus, SoundType } from "./types";
 
 type Language = "ja" | "en" | "zh";
-type ViewKey = "dashboard" | "goals" | "calendar" | "notes" | "finance";
+type ViewKey = "dashboard" | "goals" | "calendar" | "notes" | "finance" | "code";
 type FinanceKind = "income" | "expense";
+type CodeLanguage = "java" | "oracle" | "react" | "javascript";
 
 type NoteItem = {
   id: string;
@@ -47,6 +49,16 @@ type FinanceEntry = {
   kind: FinanceKind;
   date: string;
   memo: string;
+};
+
+type CodeSnippet = {
+  id: string;
+  title: string;
+  language: CodeLanguage;
+  code: string;
+  notes: string;
+  result: string;
+  updatedAt: string;
 };
 
 type Texts = {
@@ -146,6 +158,18 @@ type Texts = {
   totalIncome: string;
   totalExpense: string;
   emptyFinance: string;
+  codeTitle: string;
+  codeLanguage: string;
+  codeDisplay: string;
+  codeNotes: string;
+  codeResult: string;
+  runCode: string;
+  saveSnippet: string;
+  snippetTitlePlaceholder: string;
+  codePlaceholder: string;
+  codeNotesPlaceholder: string;
+  emptyCode: string;
+  javascriptOnlyNotice: string;
   sampleGoalOne: { title: string; notes: string; reward: string };
   sampleGoalTwo: { title: string; notes: string; reward: string };
 };
@@ -159,6 +183,7 @@ const translations: Record<Language, Texts> = {
       calendar: "Calendar",
       notes: "Notes",
       finance: "Finance",
+      code: "Code",
     },
     category: {
       long: "長期目標",
@@ -273,6 +298,18 @@ const translations: Record<Language, Texts> = {
     totalIncome: "収入合計",
     totalExpense: "支出合計",
     emptyFinance: "記帳データはまだありません。",
+    codeTitle: "コード管理",
+    codeLanguage: "言語",
+    codeDisplay: "コード表示",
+    codeNotes: "学習ノート",
+    codeResult: "実行結果",
+    runCode: "実行",
+    saveSnippet: "保存",
+    snippetTitlePlaceholder: "例：配列を map で変換する",
+    codePlaceholder: "コードを入力してください",
+    codeNotesPlaceholder: "理解したこと、注意点、応用例を書く",
+    emptyCode: "コード片はまだありません。",
+    javascriptOnlyNotice: "JavaScript は簡易実行できます。Java / Oracle / React は学習プレビューとして表示します。",
     sampleGoalOne: {
       title: "JLPT N1 の語彙を 300 語復習する",
       notes: "間違えた単語は例文つきで復習する。",
@@ -292,6 +329,7 @@ const translations: Record<Language, Texts> = {
       calendar: "Calendar",
       notes: "Notes",
       finance: "Finance",
+      code: "Code",
     },
     category: {
       long: "Long-term",
@@ -406,6 +444,18 @@ const translations: Record<Language, Texts> = {
     totalIncome: "Total income",
     totalExpense: "Total expense",
     emptyFinance: "No finance entries yet.",
+    codeTitle: "Code Manager",
+    codeLanguage: "Language",
+    codeDisplay: "Code display",
+    codeNotes: "Learning notes",
+    codeResult: "Run result",
+    runCode: "Run",
+    saveSnippet: "Save",
+    snippetTitlePlaceholder: "Example: Transform an array with map",
+    codePlaceholder: "Write your code here",
+    codeNotesPlaceholder: "Capture what you learned, caveats, and examples",
+    emptyCode: "No code snippets yet.",
+    javascriptOnlyNotice: "JavaScript can run in a simple sandbox. Java / Oracle / React show a learning preview.",
     sampleGoalOne: {
       title: "Review 300 JLPT N1 vocabulary words",
       notes: "Review missed words with example sentences.",
@@ -425,6 +475,7 @@ const translations: Record<Language, Texts> = {
       calendar: "日历",
       notes: "笔记",
       finance: "记账",
+      code: "代码管理",
     },
     category: {
       long: "长期目标",
@@ -539,6 +590,18 @@ const translations: Record<Language, Texts> = {
     totalIncome: "总收入",
     totalExpense: "总支出",
     emptyFinance: "还没有记账数据。",
+    codeTitle: "代码管理",
+    codeLanguage: "语言",
+    codeDisplay: "代码显示",
+    codeNotes: "学习笔记",
+    codeResult: "运行结果",
+    runCode: "运行",
+    saveSnippet: "保存",
+    snippetTitlePlaceholder: "例：用 map 转换数组",
+    codePlaceholder: "在这里输入代码",
+    codeNotesPlaceholder: "记录理解点、注意事项和应用例",
+    emptyCode: "还没有代码片段。",
+    javascriptOnlyNotice: "JavaScript 可进行简单运行。Java / Oracle / React 会显示学习预览。",
     sampleGoalOne: {
       title: "复习 300 个 JLPT N1 词汇",
       notes: "把错过的单词配例句复习。",
@@ -556,6 +619,18 @@ const languageOrder: Language[] = ["ja", "en", "zh"];
 const languageStoreKey = "rinaspace-language";
 const notesStoreKey = "rinaspace-notes-v1";
 const financeStoreKey = "rinaspace-finance-v1";
+const codeStoreKey = "rinaspace-code-snippets-v1";
+
+const codeLanguageLabels: Record<CodeLanguage, string> = {
+  java: "Java",
+  oracle: "Oracle SQL",
+  react: "React",
+  javascript: "JavaScript",
+};
+
+const defaultCode = `const scores = [82, 95, 67];
+const passed = scores.filter((score) => score >= 80);
+console.log(passed);`;
 
 function addMinutes(date: Date, minutes: number) {
   return new Date(date.getTime() + minutes * 60000);
@@ -648,6 +723,7 @@ export default function App() {
   const [goals, setGoals] = useState<Goal[]>(() => loadLocalGoals(buildInitialGoals(translations.ja)));
   const [notes, setNotes] = useState<NoteItem[]>(() => readJson(notesStoreKey, []));
   const [financeEntries, setFinanceEntries] = useState<FinanceEntry[]>(() => readJson(financeStoreKey, []));
+  const [codeSnippets, setCodeSnippets] = useState<CodeSnippet[]>(() => readJson(codeStoreKey, []));
   const [filter, setFilter] = useState<GoalCategory | "all">("all");
   const [view, setView] = useState<GoalStatus>("active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -672,6 +748,13 @@ export default function App() {
     kind: "expense" as FinanceKind,
     memo: "",
   });
+  const [codeDraft, setCodeDraft] = useState({
+    title: "",
+    language: "javascript" as CodeLanguage,
+    code: defaultCode,
+    notes: "",
+  });
+  const [codeResult, setCodeResult] = useState("");
   const audioRef = useRef<{ context: AudioContext; oscillators: OscillatorNode[] } | null>(null);
 
   useEffect(() => {
@@ -722,6 +805,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(financeStoreKey, JSON.stringify(financeEntries));
   }, [financeEntries]);
+
+  useEffect(() => {
+    localStorage.setItem(codeStoreKey, JSON.stringify(codeSnippets));
+  }, [codeSnippets]);
 
   useEffect(() => {
     if (!timerRunning) return undefined;
@@ -941,6 +1028,45 @@ export default function App() {
     setFinanceDraft({ title: "", amount: "", kind: "expense", memo: "" });
   }
 
+  function runCode() {
+    if (codeDraft.language !== "javascript") {
+      const preview = [
+        `${codeLanguageLabels[codeDraft.language]} preview`,
+        codeDraft.code.split("\n").slice(0, 8).join("\n"),
+        "",
+        t.javascriptOnlyNotice,
+      ].join("\n");
+      setCodeResult(preview);
+      return;
+    }
+
+    const logs: string[] = [];
+    try {
+      const runner = new Function("console", `"use strict";\n${codeDraft.code}`);
+      runner({
+        log: (...values: unknown[]) => logs.push(values.map((value) => formatConsoleValue(value)).join(" ")),
+      });
+      setCodeResult(logs.length ? logs.join("\n") : "Done");
+    } catch (error) {
+      setCodeResult(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  function saveCodeSnippet(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!codeDraft.title.trim() && !codeDraft.code.trim()) return;
+    const next: CodeSnippet = {
+      id: crypto.randomUUID(),
+      title: codeDraft.title.trim() || codeLanguageLabels[codeDraft.language],
+      language: codeDraft.language,
+      code: codeDraft.code,
+      notes: codeDraft.notes,
+      result: codeResult,
+      updatedAt: new Date().toISOString(),
+    };
+    setCodeSnippets((current) => [next, ...current]);
+  }
+
   function adjustTimer(minutes: number) {
     if (timerRunning) return;
     const next = Math.max(5 * 60, Math.min(120 * 60, timerTotal + minutes * 60));
@@ -1021,6 +1147,7 @@ export default function App() {
     { key: "calendar", icon: CalendarDays },
     { key: "notes", icon: StickyNote },
     { key: "finance", icon: Wallet },
+    { key: "code", icon: Code2 },
   ];
 
   return (
@@ -1171,6 +1298,19 @@ export default function App() {
             incomeTotal={incomeTotal}
             language={language}
             setFinanceDraft={setFinanceDraft}
+            t={t}
+          />
+        ) : null}
+
+        {currentView === "code" ? (
+          <CodeView
+            codeDraft={codeDraft}
+            codeResult={codeResult}
+            codeSnippets={codeSnippets}
+            language={language}
+            runCode={runCode}
+            saveCodeSnippet={saveCodeSnippet}
+            setCodeDraft={setCodeDraft}
             t={t}
           />
         ) : null}
@@ -1713,6 +1853,131 @@ function FinanceView({
   );
 }
 
+function CodeView({
+  codeDraft,
+  codeResult,
+  codeSnippets,
+  language,
+  runCode,
+  saveCodeSnippet,
+  setCodeDraft,
+  t,
+}: {
+  codeDraft: { title: string; language: CodeLanguage; code: string; notes: string };
+  codeResult: string;
+  codeSnippets: CodeSnippet[];
+  language: Language;
+  runCode: () => void;
+  saveCodeSnippet: (event: FormEvent<HTMLFormElement>) => void;
+  setCodeDraft: (draft: { title: string; language: CodeLanguage; code: string; notes: string }) => void;
+  t: Texts;
+}) {
+  return (
+    <section className="code-workspace">
+      <form className="code-main work-panel" onSubmit={saveCodeSnippet}>
+        <div className="section-head">
+          <h2>{t.codeTitle}</h2>
+          <div className="top-actions">
+            <button className="ghost small" type="button" onClick={runCode}>
+              <Timer size={15} />
+              {t.runCode}
+            </button>
+            <button className="primary small" type="submit">
+              <Plus size={15} />
+              {t.saveSnippet}
+            </button>
+          </div>
+        </div>
+
+        <div className="code-editor-grid">
+          <section className="code-pane">
+            <div className="code-toolbar">
+              <label className="field">
+                <span>{t.title}</span>
+                <input
+                  placeholder={t.snippetTitlePlaceholder}
+                  value={codeDraft.title}
+                  onChange={(event) => setCodeDraft({ ...codeDraft, title: event.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>{t.codeLanguage}</span>
+                <select
+                  value={codeDraft.language}
+                  onChange={(event) => setCodeDraft({ ...codeDraft, language: event.target.value as CodeLanguage })}
+                >
+                  {Object.entries(codeLanguageLabels).map(([value, label]) => (
+                    <option value={value} key={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="field code-field">
+              <span>{t.codeDisplay}</span>
+              <textarea
+                className="code-input"
+                spellCheck={false}
+                placeholder={t.codePlaceholder}
+                value={codeDraft.code}
+                onChange={(event) => setCodeDraft({ ...codeDraft, code: event.target.value })}
+              />
+            </label>
+          </section>
+
+          <aside className="note-pane">
+            <label className="field code-field">
+              <span>{t.codeNotes}</span>
+              <textarea
+                placeholder={t.codeNotesPlaceholder}
+                value={codeDraft.notes}
+                onChange={(event) => setCodeDraft({ ...codeDraft, notes: event.target.value })}
+              />
+            </label>
+            <p className="helper-text">{t.javascriptOnlyNotice}</p>
+          </aside>
+        </div>
+
+        <section className="result-pane">
+          <div className="section-head tight">
+            <h3>{t.codeResult}</h3>
+          </div>
+          <pre>{codeResult || t.codeResult}</pre>
+        </section>
+      </form>
+
+      <aside className="work-panel code-library">
+        <h2>{t.codeTitle}</h2>
+        <div className="stack-list">
+          {codeSnippets.length ? (
+            codeSnippets.map((snippet) => (
+              <button
+                className="snippet-card"
+                key={snippet.id}
+                onClick={() =>
+                  setCodeDraft({
+                    title: snippet.title,
+                    language: snippet.language,
+                    code: snippet.code,
+                    notes: snippet.notes,
+                  })
+                }
+              >
+                <strong>{snippet.title}</strong>
+                <span>{codeLanguageLabels[snippet.language]}</span>
+                <small>{formatDate(new Date(snippet.updatedAt), language)}</small>
+              </button>
+            ))
+          ) : (
+            <div className="empty compact-empty">{t.emptyCode}</div>
+          )}
+        </div>
+      </aside>
+    </section>
+  );
+}
+
 function GoalCard({
   goal,
   setSelectedId,
@@ -1803,6 +2068,15 @@ function GoalCard({
       ) : null}
     </article>
   );
+}
+
+function formatConsoleValue(value: unknown) {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 function soundFrequencies(type: SoundType) {
