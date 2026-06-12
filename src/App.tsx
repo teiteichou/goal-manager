@@ -2409,11 +2409,12 @@ function NotesView({
           <div className="template-answer-list">
             {selectedTemplate.items.map((item, index) => {
               const key = `${selectedTemplate.id}-${index}`;
+              const answerRows = selectedTemplate.id === "tool" && index === 3 ? 6 : selectedTemplate.id === "tool" && index === 4 ? 9 : 3;
               return (
                 <label className="field question-field" key={key}>
                   <span>{item}</span>
                   <textarea
-                    rows={3}
+                    rows={answerRows}
                     value={noteDraft.answers?.[key] ?? ""}
                     disabled={isStudyReadOnly}
                     onChange={(event) =>
