@@ -622,6 +622,10 @@ h3 {
   vertical-align: top;
 }
 
+.paste-pager {
+  justify-content: flex-end;
+}
+
 .study-actions {
   display: inline-flex;
   align-items: center;

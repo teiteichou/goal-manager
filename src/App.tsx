@@ -869,6 +869,65 @@ function readJson<T>(key: string, fallback: T): T {
   }
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function nodeToHtml(node: ChildNode) {
+  const wrapper = document.createElement("div");
+  wrapper.appendChild(node.cloneNode(true));
+  return wrapper.innerHTML;
+}
+
+function splitPasteHtmlIntoPages(html: string, maxPageWeight = 1800) {
+  if (!html.trim()) return [""];
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const pages: string[] = [];
+  let currentHtml = "";
+  let currentWeight = 0;
+
+  function pushCurrent() {
+    if (!currentHtml.trim()) return;
+    pages.push(currentHtml);
+    currentHtml = "";
+    currentWeight = 0;
+  }
+
+  Array.from(template.content.childNodes).forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent ?? "";
+      for (let start = 0; start < text.length; start += maxPageWeight) {
+        const chunk = text.slice(start, start + maxPageWeight);
+        if (currentWeight + chunk.length > maxPageWeight) pushCurrent();
+        currentHtml += escapeHtml(chunk);
+        currentWeight += chunk.length;
+      }
+      return;
+    }
+
+    const htmlChunk = nodeToHtml(node);
+    const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : null;
+    const hasImage = node.nodeName.toLowerCase() === "img" || Boolean(element?.querySelector("img"));
+    const weight = Math.max((node.textContent ?? "").length, hasImage ? maxPageWeight : 80);
+
+    if (currentWeight && currentWeight + weight > maxPageWeight) pushCurrent();
+    currentHtml += htmlChunk;
+    currentWeight += weight;
+
+    if (hasImage) pushCurrent();
+  });
+
+  pushCurrent();
+  return pages.length ? pages : [html];
+}
+
 function buildInitialGoals(seed: Texts): Goal[] {
   return [
     {
@@ -1683,6 +1742,7 @@ export default function App() {
             ideaPage={ideaPage}
             isPasteEditing={isPasteEditing}
             isStudyEditing={isStudyEditing}
+            key={noteMode}
             language={language}
             noteMode={noteMode}
             noteDraft={noteDraft}
@@ -2430,7 +2490,8 @@ function NotesView({
   t: Texts;
 }) {
   const templates = studyTemplates[language];
-  const selectedTemplate = templates.find((template) => template.id === noteDraft.themeId) ?? templates[0];
+  const studyDraft = noteDraft.kind === "study" ? noteDraft : { kind: "study" as NoteKind, themeId: "tool", title: "", body: "", answers: {} };
+  const selectedTemplate = templates.find((template) => template.id === studyDraft.themeId) ?? templates[0];
   const ideaNotes = notes.filter((note) => (note.kind ?? "idea") === "idea");
   const studyNotes = notes.filter((note) => note.kind === "study");
   const pasteNotes = notes.filter((note) => note.kind === "paste");
@@ -2442,16 +2503,64 @@ function NotesView({
   const isStudyReadOnly = Boolean(selectedStudyNote && !isStudyEditing);
   const isPasteReadOnly = Boolean(selectedPasteNote && !isPasteEditing);
   const pasteEditorRef = useRef<HTMLDivElement | null>(null);
+  const [pastePage, setPastePage] = useState(1);
+  const pasteBody = noteDraft.kind === "paste" ? noteDraft.body : "";
+  const pastePages = useMemo(
+    () => (isPasteReadOnly ? splitPasteHtmlIntoPages(pasteBody) : [pasteBody]),
+    [isPasteReadOnly, pasteBody],
+  );
+  const pasteTotalPages = Math.max(1, pastePages.length);
+  const safePastePage = Math.min(pastePage, pasteTotalPages);
+  const visiblePasteHtml = pastePages[safePastePage - 1] ?? "";
 
   useEffect(() => {
-    if (noteMode !== "paste" || !pasteEditorRef.current) return;
-    if (pasteEditorRef.current.innerHTML !== noteDraft.body) {
-      pasteEditorRef.current.innerHTML = noteDraft.body;
+    if (noteMode === noteDraft.kind) return;
+
+    if (noteMode === "study") {
+      setNoteDraft({ kind: "study", themeId: "tool", title: "", body: "", answers: {} });
+      return;
+    }
+
+    if (noteMode === "paste") {
+      setNoteDraft({ kind: "paste", themeId: "tool", title: "", body: "", answers: {} });
+      return;
+    }
+
+    setNoteDraft({ kind: "idea", themeId: "tool", title: "", body: "", answers: {} });
+  }, [noteDraft.kind, noteMode, setNoteDraft]);
+
+  useEffect(() => {
+    const editor = pasteEditorRef.current;
+    if (noteMode !== "paste" || !editor) return;
+
+    if (editor.innerHTML !== noteDraft.body) {
+      editor.innerHTML = noteDraft.body;
     }
   }, [editingPasteId, noteDraft.body, noteMode]);
 
+  useEffect(() => {
+    if (noteMode !== "paste") {
+      pasteEditorRef.current?.replaceChildren();
+      return;
+    }
+
+    return () => {
+      pasteEditorRef.current?.replaceChildren();
+    };
+  }, [noteMode]);
+
+  useEffect(() => {
+    setPastePage(1);
+  }, [editingPasteId, isPasteReadOnly, noteMode]);
+
+  useEffect(() => {
+    if (pastePage > pasteTotalPages) setPastePage(pasteTotalPages);
+  }, [pastePage, pasteTotalPages]);
+
   function updatePasteBody() {
-    setNoteDraft({ ...noteDraft, kind: "paste", body: pasteEditorRef.current?.innerHTML ?? "" });
+    if (noteMode !== "paste") return;
+    const body = pasteEditorRef.current?.innerHTML ?? "";
+    setNoteDraft((current) => (current.kind === "paste" ? { ...current, body } : current));
   }
 
   function insertPasteHtml(html: string) {
@@ -2531,16 +2640,36 @@ function NotesView({
             />
           </label>
 
-          <div
-            aria-label={t.pasteNotes}
-            className={`paste-page ${isPasteReadOnly ? "readonly" : ""}`}
-            contentEditable={!isPasteReadOnly}
-            onInput={updatePasteBody}
-            onPaste={handlePasteEditorPaste}
-            ref={pasteEditorRef}
-            role="textbox"
-            suppressContentEditableWarning
-          />
+          {isPasteReadOnly ? (
+            <>
+              <div
+                aria-label={t.pasteNotes}
+                className="paste-page readonly"
+                dangerouslySetInnerHTML={{ __html: visiblePasteHtml }}
+                role="article"
+              />
+              <div className="pager paste-pager">
+                <button className="ghost small" disabled={safePastePage <= 1} onClick={() => setPastePage(safePastePage - 1)} type="button">
+                  {t.previousPage}
+                </button>
+                <span>{t.stickyPage(safePastePage, pasteTotalPages)}</span>
+                <button className="ghost small" disabled={safePastePage >= pasteTotalPages} onClick={() => setPastePage(safePastePage + 1)} type="button">
+                  {t.nextPage}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div
+              aria-label={t.pasteNotes}
+              className="paste-page"
+              contentEditable
+              onInput={updatePasteBody}
+              onPaste={handlePasteEditorPaste}
+              ref={pasteEditorRef}
+              role="textbox"
+              suppressContentEditableWarning
+            />
+          )}
         </div>
 
         <aside className="work-panel stack-list">
@@ -2583,10 +2712,10 @@ function NotesView({
             <label className="field theme-select">
               <span>{t.noteTheme}</span>
               <select
-                value={noteDraft.themeId}
+                value={studyDraft.themeId}
                 disabled={isStudyReadOnly}
                 onChange={(event) =>
-                  setNoteDraft({ ...noteDraft, kind: "study", themeId: event.target.value, answers: {} })
+                  setNoteDraft({ ...studyDraft, kind: "study", themeId: event.target.value, answers: {} })
                 }
               >
                 {templates.map((template) => (
@@ -2621,9 +2750,9 @@ function NotesView({
             <span>{t.title}</span>
             <input
               placeholder={selectedTemplate.title}
-              value={noteDraft.title}
+              value={studyDraft.title}
               disabled={isStudyReadOnly}
-              onChange={(event) => setNoteDraft({ ...noteDraft, kind: "study", title: event.target.value })}
+              onChange={(event) => setNoteDraft({ ...studyDraft, kind: "study", title: event.target.value })}
             />
           </label>
 
@@ -2642,13 +2771,13 @@ function NotesView({
                   <span>{item}</span>
                   <textarea
                     rows={answerRows}
-                    value={noteDraft.answers?.[key] ?? ""}
+                    value={studyDraft.answers?.[key] ?? ""}
                     disabled={isStudyReadOnly}
                     onChange={(event) =>
                       setNoteDraft({
-                        ...noteDraft,
+                        ...studyDraft,
                         kind: "study",
-                        answers: { ...(noteDraft.answers ?? {}), [key]: event.target.value },
+                        answers: { ...(studyDraft.answers ?? {}), [key]: event.target.value },
                       })
                     }
                   />
