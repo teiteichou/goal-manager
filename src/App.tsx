@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ClipboardEvent, Dispatch, FormEvent, SetStateAction } from "react";
+import type { ClipboardEvent, Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import {
   Bell,
   CalendarDays,
@@ -849,6 +849,64 @@ function formatDate(date: Date, language: Language) {
   }).format(date);
 }
 
+type CompanionScene = "desk" | "grass" | "meal" | "sleep" | "bedRead";
+
+function getCompanionScene(date = new Date()): CompanionScene {
+  const hour = date.getHours();
+  if (hour >= 22 || hour < 7) return "sleep";
+  if (hour < 12) return "desk";
+  if (hour < 13) return "meal";
+  if (hour < 17) return "grass";
+  if (hour < 18) return "meal";
+  return "bedRead";
+}
+
+function CompanionWidget() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const handle = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(handle);
+  }, []);
+
+  const scene = getCompanionScene(now);
+  const sceneText: Record<CompanionScene, string> = {
+    sleep: "すやすや",
+    desk: "朝の読書",
+    meal: "ごはん",
+    grass: "芝生で読書",
+    bedRead: "夜の読書",
+  };
+  const sceneProp: Record<CompanionScene, ReactNode> = {
+    sleep: <span className="companion-bed" />,
+    desk: <span className="companion-desk" />,
+    meal: <span className="companion-table" />,
+    grass: <span className="companion-grass" />,
+    bedRead: <span className="companion-bed reading" />,
+  };
+  const showBook = scene === "desk" || scene === "grass" || scene === "bedRead";
+
+  return (
+    <section className={`companion-widget ${scene}`} aria-label="Rina companion">
+      <div className="companion-stage">
+        {sceneProp[scene]}
+        <div className="companion-girl">
+          <span className="companion-hair" />
+          <span className="companion-face" />
+          <span className="companion-body" />
+          {showBook ? <span className="companion-book" /> : null}
+          {scene === "meal" ? <span className="companion-bowl" /> : null}
+          {scene === "sleep" ? <span className="companion-sleep-mark">Zz</span> : null}
+        </div>
+      </div>
+      <div className="companion-caption">
+        <strong>Rina</strong>
+        <span>{sceneText[scene]}</span>
+      </div>
+    </section>
+  );
+}
+
 function formatMoney(amount: number, language: Language) {
   const locale = language === "ja" ? "ja-JP" : language === "zh" ? "zh-CN" : "en-US";
   return new Intl.NumberFormat(locale, { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(amount);
@@ -1649,6 +1707,7 @@ export default function App() {
             </select>
           </label>
         </section>
+        <CompanionWidget />
       </aside>
 
       <main className="workspace">
