@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Dispatch, FormEvent, SetStateAction } from "react";
+import type { ClipboardEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import {
   Bell,
   CalendarDays,
@@ -34,7 +34,7 @@ type Language = "ja" | "en" | "zh";
 type ViewKey = "dashboard" | "goals" | "calendar" | "notes" | "finance" | "code";
 type FinanceKind = "income" | "expense";
 type CodeLanguage = "java" | "oracle" | "react" | "javascript";
-type NoteKind = "idea" | "study";
+type NoteKind = "idea" | "study" | "paste";
 
 type CalendarEvent = {
   id: string;
@@ -164,6 +164,7 @@ type Texts = {
   emptyNotes: string;
   ideaNotes: string;
   studyNotes: string;
+  pasteNotes: string;
   noteTheme: string;
   noteTemplate: string;
   stickyPage: (page: number, total: number) => string;
@@ -316,6 +317,7 @@ const translations: Record<Language, Texts> = {
     emptyNotes: "ノートはまだありません。",
     ideaNotes: "アイデア記録",
     studyNotes: "学習ノート",
+    pasteNotes: "貼り付けノート",
     noteTheme: "ノートテーマ",
     noteTemplate: "テーマテンプレート",
     stickyPage: (page, total) => `${page} / ${total}`,
@@ -474,6 +476,7 @@ const translations: Record<Language, Texts> = {
     emptyNotes: "No notes yet.",
     ideaNotes: "Idea notes",
     studyNotes: "Study notes",
+    pasteNotes: "Paste notes",
     noteTheme: "Note theme",
     noteTemplate: "Theme template",
     stickyPage: (page, total) => `${page} / ${total}`,
@@ -632,6 +635,7 @@ const translations: Record<Language, Texts> = {
     emptyNotes: "还没有笔记。",
     ideaNotes: "灵感记录",
     studyNotes: "学习笔记",
+    pasteNotes: "贴图笔记",
     noteTheme: "笔记主题",
     noteTemplate: "主题模板",
     stickyPage: (page, total) => `${page} / ${total}`,
@@ -942,7 +946,9 @@ export default function App() {
   });
   const [editingIdeaId, setEditingIdeaId] = useState<string | null>(null);
   const [editingStudyId, setEditingStudyId] = useState<string | null>(null);
+  const [editingPasteId, setEditingPasteId] = useState<string | null>(null);
   const [isStudyEditing, setStudyEditing] = useState(true);
+  const [isPasteEditing, setPasteEditing] = useState(true);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [ideaPage, setIdeaPage] = useState(1);
   const [financeDraft, setFinanceDraft] = useState({
@@ -1255,16 +1261,56 @@ export default function App() {
     });
   }
 
+  function savePasteNote() {
+    const strippedBody = noteDraft.body.replace(/<[^>]*>/g, "").trim();
+    const hasImage = /<img[\s>]/i.test(noteDraft.body);
+    if (!noteDraft.title.trim() && !strippedBody && !hasImage) return;
+
+    const nextNote: NoteItem = {
+      id: editingPasteId ?? crypto.randomUUID(),
+      kind: "paste",
+      title: noteDraft.title.trim() || t.pasteNotes,
+      body: noteDraft.body,
+      createdAt: new Date().toISOString(),
+    };
+
+    setNotes((current) =>
+      editingPasteId ? current.map((note) => (note.id === editingPasteId ? nextNote : note)) : [nextNote, ...current],
+    );
+    setEditingPasteId(null);
+    setPasteEditing(true);
+    setNoteDraft((current) => ({ ...current, kind: "paste", title: "", body: "", answers: {} }));
+  }
+
+  function selectPasteNote(note: NoteItem) {
+    setEditingPasteId(note.id);
+    setPasteEditing(false);
+    setNoteDraft({
+      kind: "paste",
+      themeId: "tool",
+      title: note.title,
+      body: note.body,
+      answers: {},
+    });
+  }
+
   function beginStudyEdit() {
     if (!editingStudyId) return;
     setStudyEditing(true);
+  }
+
+  function beginPasteEdit() {
+    if (!editingPasteId) return;
+    setPasteEditing(true);
   }
 
   function openIdeaNotes() {
     setCurrentView("notes");
     setNoteMode("idea");
     setEditingStudyId(null);
+    setEditingPasteId(null);
     setStudyEditing(true);
+    setPasteEditing(true);
     setNoteDraft({ kind: "idea", themeId: "tool", title: "", body: "", answers: {} });
   }
 
@@ -1272,9 +1318,22 @@ export default function App() {
     setCurrentView("notes");
     setNoteMode("study");
     setEditingIdeaId(null);
+    setEditingPasteId(null);
     setNoteDraft({ kind: "study", themeId: "tool", title: "", body: "", answers: {} });
     setEditingStudyId(null);
     setStudyEditing(true);
+    setPasteEditing(true);
+  }
+
+  function openPasteNotes() {
+    setCurrentView("notes");
+    setNoteMode("paste");
+    setEditingIdeaId(null);
+    setEditingStudyId(null);
+    setStudyEditing(true);
+    setNoteDraft({ kind: "paste", themeId: "tool", title: "", body: "", answers: {} });
+    setEditingPasteId(null);
+    setPasteEditing(true);
   }
 
   function selectIdeaNote(note: NoteItem) {
@@ -1301,6 +1360,11 @@ export default function App() {
       setEditingStudyId(null);
       setStudyEditing(true);
       setNoteDraft((current) => ({ ...current, kind: "study", title: "", body: "", answers: {} }));
+    }
+    if (editingPasteId === id) {
+      setEditingPasteId(null);
+      setPasteEditing(true);
+      setNoteDraft((current) => ({ ...current, kind: "paste", title: "", body: "", answers: {} }));
     }
     setPendingDeleteId(null);
   }
@@ -1483,6 +1547,12 @@ export default function App() {
                   >
                     {t.studyNotes}
                   </button>
+                  <button
+                    className={currentView === "notes" && noteMode === "paste" ? "active" : ""}
+                    onClick={openPasteNotes}
+                  >
+                    {t.pasteNotes}
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -1604,11 +1674,14 @@ export default function App() {
         {currentView === "notes" ? (
           <NotesView
             addNote={addNote}
+            beginPasteEdit={beginPasteEdit}
             beginStudyEdit={beginStudyEdit}
             deleteNote={deleteNote}
             editingIdeaId={editingIdeaId}
+            editingPasteId={editingPasteId}
             editingStudyId={editingStudyId}
             ideaPage={ideaPage}
+            isPasteEditing={isPasteEditing}
             isStudyEditing={isStudyEditing}
             language={language}
             noteMode={noteMode}
@@ -1616,8 +1689,10 @@ export default function App() {
             notes={notes}
             pendingDeleteId={pendingDeleteId}
             requestDeleteNote={requestDeleteNote}
+            savePasteNote={savePasteNote}
             saveStudyNote={saveStudyNote}
             selectIdeaNote={selectIdeaNote}
+            selectPasteNote={selectPasteNote}
             selectStudyNote={selectStudyNote}
             setIdeaPage={setIdeaPage}
             setPendingDeleteId={setPendingDeleteId}
@@ -2301,11 +2376,14 @@ function CalendarView({
 
 function NotesView({
   addNote,
+  beginPasteEdit,
   beginStudyEdit,
   deleteNote,
   editingIdeaId,
+  editingPasteId,
   editingStudyId,
   ideaPage,
+  isPasteEditing,
   isStudyEditing,
   language,
   noteMode,
@@ -2313,8 +2391,10 @@ function NotesView({
   notes,
   pendingDeleteId,
   requestDeleteNote,
+  savePasteNote,
   saveStudyNote,
   selectIdeaNote,
+  selectPasteNote,
   selectStudyNote,
   setIdeaPage,
   setPendingDeleteId,
@@ -2322,11 +2402,14 @@ function NotesView({
   t,
 }: {
   addNote: (event: FormEvent<HTMLFormElement>) => void;
+  beginPasteEdit: () => void;
   beginStudyEdit: () => void;
   deleteNote: (id: string) => void;
   editingIdeaId: string | null;
+  editingPasteId: string | null;
   editingStudyId: string | null;
   isStudyEditing: boolean;
+  isPasteEditing: boolean;
   ideaPage: number;
   language: Language;
   noteMode: NoteKind;
@@ -2334,8 +2417,10 @@ function NotesView({
   notes: NoteItem[];
   pendingDeleteId: string | null;
   requestDeleteNote: (id: string) => void;
+  savePasteNote: () => void;
   saveStudyNote: () => void;
   selectIdeaNote: (note: NoteItem) => void;
+  selectPasteNote: (note: NoteItem) => void;
   selectStudyNote: (note: NoteItem) => void;
   setIdeaPage: (page: number) => void;
   setPendingDeleteId: (id: string | null) => void;
@@ -2348,11 +2433,147 @@ function NotesView({
   const selectedTemplate = templates.find((template) => template.id === noteDraft.themeId) ?? templates[0];
   const ideaNotes = notes.filter((note) => (note.kind ?? "idea") === "idea");
   const studyNotes = notes.filter((note) => note.kind === "study");
+  const pasteNotes = notes.filter((note) => note.kind === "paste");
   const totalPages = Math.max(1, Math.ceil(ideaNotes.length / 15));
   const safePage = Math.min(ideaPage, totalPages);
   const visibleIdeas = ideaNotes.slice((safePage - 1) * 15, safePage * 15);
   const selectedStudyNote = studyNotes.find((note) => note.id === editingStudyId) ?? null;
+  const selectedPasteNote = pasteNotes.find((note) => note.id === editingPasteId) ?? null;
   const isStudyReadOnly = Boolean(selectedStudyNote && !isStudyEditing);
+  const isPasteReadOnly = Boolean(selectedPasteNote && !isPasteEditing);
+  const pasteEditorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (noteMode !== "paste" || !pasteEditorRef.current) return;
+    if (pasteEditorRef.current.innerHTML !== noteDraft.body) {
+      pasteEditorRef.current.innerHTML = noteDraft.body;
+    }
+  }, [editingPasteId, noteDraft.body, noteMode]);
+
+  function updatePasteBody() {
+    setNoteDraft({ ...noteDraft, kind: "paste", body: pasteEditorRef.current?.innerHTML ?? "" });
+  }
+
+  function insertPasteHtml(html: string) {
+    pasteEditorRef.current?.focus();
+    document.execCommand("insertHTML", false, html);
+    updatePasteBody();
+  }
+
+  function escapePasteText(value: string) {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/\n/g, "<br>");
+  }
+
+  function handlePasteEditorPaste(event: ClipboardEvent<HTMLDivElement>) {
+    if (isPasteReadOnly) return;
+    const imageFiles = Array.from(event.clipboardData.items)
+      .filter((item) => item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => Boolean(file));
+
+    event.preventDefault();
+
+    if (!imageFiles.length) {
+      const text = event.clipboardData.getData("text/plain");
+      if (text) insertPasteHtml(escapePasteText(text));
+      return;
+    }
+
+    imageFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        insertPasteHtml(`<img src="${reader.result}" alt="pasted image">`);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (noteMode === "paste") {
+    return (
+      <section className="paste-notes-workspace">
+        <div className="work-panel paste-editor-panel">
+          <div className="section-head">
+            <h2>{t.pasteNotes}</h2>
+            <div className="study-actions">
+              {isPasteReadOnly ? (
+                <button className="ghost small" onClick={beginPasteEdit} type="button">
+                  {t.edit}
+                </button>
+              ) : (
+                <button className="primary small" onClick={savePasteNote} type="button">
+                  {t.save}
+                </button>
+              )}
+              <button
+                className="ghost small danger-action"
+                disabled={!editingPasteId}
+                onClick={() => editingPasteId && requestDeleteNote(editingPasteId)}
+                type="button"
+              >
+                {t.delete}
+              </button>
+            </div>
+          </div>
+
+          <label className="field">
+            <span>{t.title}</span>
+            <input
+              placeholder={t.noteTitlePlaceholder}
+              value={noteDraft.kind === "paste" ? noteDraft.title : ""}
+              disabled={isPasteReadOnly}
+              onChange={(event) => setNoteDraft({ ...noteDraft, kind: "paste", title: event.target.value })}
+            />
+          </label>
+
+          <div
+            aria-label={t.pasteNotes}
+            className={`paste-page ${isPasteReadOnly ? "readonly" : ""}`}
+            contentEditable={!isPasteReadOnly}
+            onInput={updatePasteBody}
+            onPaste={handlePasteEditorPaste}
+            ref={pasteEditorRef}
+            role="textbox"
+            suppressContentEditableWarning
+          />
+        </div>
+
+        <aside className="work-panel stack-list">
+          <h2>{t.pasteNotes}</h2>
+          {pasteNotes.length ? (
+            pasteNotes.map((note) => (
+              <button className={`study-note-card ${editingPasteId === note.id ? "active" : ""}`} key={note.id} onClick={() => selectPasteNote(note)}>
+                <strong>{note.title}</strong>
+                <span>{formatDate(new Date(note.createdAt), language)}</span>
+              </button>
+            ))
+          ) : (
+            <div className="empty compact-empty">{t.emptyNotes}</div>
+          )}
+        </aside>
+        {pendingDeleteId ? (
+          <div className="confirm-backdrop" role="presentation">
+            <div className="confirm-dialog">
+              <p>{t.confirmDeleteNote}</p>
+              <div className="dialog-actions">
+                <button className="ghost" onClick={() => setPendingDeleteId(null)} type="button">
+                  {t.no}
+                </button>
+                <button className="primary" onClick={() => deleteNote(pendingDeleteId)} type="button">
+                  {t.yes}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
+    );
+  }
 
   if (noteMode === "study") {
     return (
@@ -2410,8 +2631,14 @@ function NotesView({
             {selectedTemplate.items.map((item, index) => {
               const key = `${selectedTemplate.id}-${index}`;
               const answerRows = selectedTemplate.id === "tool" && index === 3 ? 6 : selectedTemplate.id === "tool" && index === 4 ? 9 : 3;
+              const heightClass =
+                selectedTemplate.id === "tool" && index === 3
+                  ? " common-operations-answer"
+                  : selectedTemplate.id === "tool" && index === 4
+                    ? " work-usage-answer"
+                    : "";
               return (
-                <label className="field question-field" key={key}>
+                <label className={`field question-field${heightClass}`} key={key}>
                   <span>{item}</span>
                   <textarea
                     rows={answerRows}

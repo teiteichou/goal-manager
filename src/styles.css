@@ -375,6 +375,12 @@ h3 {
   gap: 18px;
 }
 
+.paste-notes-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 18px;
+}
+
 .dashboard-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -580,6 +586,42 @@ h3 {
   gap: 16px;
 }
 
+.paste-editor-panel {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.paste-page {
+  min-height: 760px;
+  padding: 24px;
+  overflow: auto;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  line-height: 1.7;
+  outline: none;
+  white-space: normal;
+}
+
+.paste-page:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.paste-page.readonly {
+  background: #f4f7f9;
+}
+
+.paste-page img {
+  display: inline-block;
+  max-width: none;
+  height: auto;
+  margin: 4px 8px 4px 0;
+  vertical-align: top;
+}
+
 .study-actions {
   display: inline-flex;
   align-items: center;
@@ -602,6 +644,14 @@ h3 {
 
 .question-field textarea {
   min-height: 94px;
+}
+
+.question-field.common-operations-answer textarea {
+  min-height: 188px;
+}
+
+.question-field.work-usage-answer textarea {
+  min-height: 282px;
 }
 
 .field input:disabled,
@@ -1294,6 +1344,7 @@ h3 {
   .calendar-workspace,
   .notes-workspace,
   .study-notes-workspace,
+  .paste-notes-workspace,
   .code-editor-grid {
     grid-template-columns: 1fr;
   }
