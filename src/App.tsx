@@ -247,7 +247,7 @@ const translations: Record<Language, Texts> = {
     stop: "停止",
     backgroundSound: "背景音",
     pageEyebrow: "RinaSpace",
-    headline: "目標、予定、メモ、家計をひとつの場所で整える。",
+    headline: "今日の小さな歩みを、静かに未来へつないでいく。",
     syncWaiting: "Supabase 接続待機中",
     syncLocal: "ローカル保存",
     syncDone: "Supabase 同期済み",
@@ -406,7 +406,7 @@ const translations: Record<Language, Texts> = {
     stop: "Stop",
     backgroundSound: "Background sound",
     pageEyebrow: "RinaSpace",
-    headline: "Organize goals, schedule, notes, and money in one place.",
+    headline: "Gather each small step today, and let it quietly become tomorrow.",
     syncWaiting: "Supabase pending",
     syncLocal: "Local storage",
     syncDone: "Supabase synced",
@@ -565,7 +565,7 @@ const translations: Record<Language, Texts> = {
     stop: "停止",
     backgroundSound: "背景音",
     pageEyebrow: "RinaSpace",
-    headline: "把目标、日程、笔记和账本整理在一个地方。",
+    headline: "把今天的每一步，温柔地收藏成明天的光。",
     syncWaiting: "Supabase 等待连接",
     syncLocal: "本地保存",
     syncDone: "Supabase 已同步",
@@ -1631,7 +1631,7 @@ export default function App() {
     { key: "finance", icon: Wallet },
     { key: "code", icon: Code2 },
   ];
-  const showWorkspaceHeader = currentView !== "notes" && currentView !== "code";
+  const showStatsGrid = currentView !== "notes" && currentView !== "code";
 
   return (
     <div className="app-shell">
@@ -1718,46 +1718,44 @@ export default function App() {
       </aside>
 
       <main className="workspace">
-        {showWorkspaceHeader ? (
-          <>
-            <header className="topbar">
-              <div>
-                <span className="eyebrow">{t.pageEyebrow}</span>
-                <h1>{t.headline}</h1>
-              </div>
-              <div className="top-actions">
-                <div className="language-switch" aria-label="Language switch">
-                  <Languages size={16} />
-                  {languageOrder.map((item) => (
-                    <button
-                      className={language === item ? "active" : ""}
-                      key={item}
-                      onClick={() => setLanguage(item)}
-                      title={translations[item].languageName}
-                    >
-                      {item.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-                <span className="sync-pill">{syncLabel}</span>
-                <button className="ghost" onClick={requestNotifications}>
-                  <Bell size={16} />
-                  {t.allowNotifications}
+        <header className="topbar">
+          <div>
+            <span className="eyebrow">{t.pageEyebrow}</span>
+            <h1>{t.headline}</h1>
+          </div>
+          <div className="top-actions">
+            <div className="language-switch" aria-label="Language switch">
+              <Languages size={16} />
+              {languageOrder.map((item) => (
+                <button
+                  className={language === item ? "active" : ""}
+                  key={item}
+                  onClick={() => setLanguage(item)}
+                  title={translations[item].languageName}
+                >
+                  {item.toUpperCase()}
                 </button>
-                <button className="primary" onClick={() => openGoalDialog()}>
-                  <Plus size={17} />
-                  {t.createGoal}
-                </button>
-              </div>
-            </header>
+              ))}
+            </div>
+            <span className="sync-pill">{syncLabel}</span>
+            <button className="ghost" onClick={requestNotifications}>
+              <Bell size={16} />
+              {t.allowNotifications}
+            </button>
+            <button className="primary" onClick={() => openGoalDialog()}>
+              <Plus size={17} />
+              {t.createGoal}
+            </button>
+          </div>
+        </header>
 
+        {showStatsGrid ? (
             <section className="stats-grid" aria-label={t.dashboardTitle}>
               <Stat label={t.active} value={activeGoals.length} />
               <Stat label={t.done} value={doneGoals.length} />
               <Stat label={t.soon} value={soonGoals.length} />
               <Stat label={t.todayFocus} value={`${focusMinutes}m`} />
             </section>
-          </>
         ) : null}
 
         {currentView === "dashboard" ? (
