@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import {
   Bell,
+  Bold,
   CalendarDays,
   Check,
   Code2,
@@ -11,6 +12,7 @@ import {
   LayoutDashboard,
   Minus,
   Plus,
+  Quote,
   RotateCcw,
   Sparkles,
   StickyNote,
@@ -893,7 +895,7 @@ function CompanionWidget() {
         <div className="companion-girl">
           <span className="companion-hair" />
           <span className="companion-face" />
-          <span className="companion-body" />
+          <span className="companion-dress" />
           {showBook ? <span className="companion-book" /> : null}
           {scene === "meal" ? <span className="companion-bowl" /> : null}
           {scene === "sleep" ? <span className="companion-sleep-mark">Zz</span> : null}
@@ -934,6 +936,10 @@ function escapeHtml(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function stripHtml(value: string) {
+  return value.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
 }
 
 function nodeToHtml(node: ChildNode) {
@@ -1345,7 +1351,7 @@ export default function App() {
 
   function saveStudyNote() {
     const template = studyTemplates[language].find((item) => item.id === noteDraft.themeId) ?? studyTemplates[language][0];
-    const hasAnswers = Object.values(noteDraft.answers).some((value) => value.trim());
+    const hasAnswers = Object.values(noteDraft.answers).some((value) => stripHtml(value));
     if (!noteDraft.title.trim() && !hasAnswers) return;
 
     const nextNote: NoteItem = {
@@ -1625,6 +1631,7 @@ export default function App() {
     { key: "finance", icon: Wallet },
     { key: "code", icon: Code2 },
   ];
+  const showWorkspaceHeader = currentView !== "notes" && currentView !== "code";
 
   return (
     <div className="app-shell">
@@ -1711,43 +1718,47 @@ export default function App() {
       </aside>
 
       <main className="workspace">
-        <header className="topbar">
-          <div>
-            <span className="eyebrow">{t.pageEyebrow}</span>
-            <h1>{t.headline}</h1>
-          </div>
-          <div className="top-actions">
-            <div className="language-switch" aria-label="Language switch">
-              <Languages size={16} />
-              {languageOrder.map((item) => (
-                <button
-                  className={language === item ? "active" : ""}
-                  key={item}
-                  onClick={() => setLanguage(item)}
-                  title={translations[item].languageName}
-                >
-                  {item.toUpperCase()}
+        {showWorkspaceHeader ? (
+          <>
+            <header className="topbar">
+              <div>
+                <span className="eyebrow">{t.pageEyebrow}</span>
+                <h1>{t.headline}</h1>
+              </div>
+              <div className="top-actions">
+                <div className="language-switch" aria-label="Language switch">
+                  <Languages size={16} />
+                  {languageOrder.map((item) => (
+                    <button
+                      className={language === item ? "active" : ""}
+                      key={item}
+                      onClick={() => setLanguage(item)}
+                      title={translations[item].languageName}
+                    >
+                      {item.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <span className="sync-pill">{syncLabel}</span>
+                <button className="ghost" onClick={requestNotifications}>
+                  <Bell size={16} />
+                  {t.allowNotifications}
                 </button>
-              ))}
-            </div>
-            <span className="sync-pill">{syncLabel}</span>
-            <button className="ghost" onClick={requestNotifications}>
-              <Bell size={16} />
-              {t.allowNotifications}
-            </button>
-            <button className="primary" onClick={() => openGoalDialog()}>
-              <Plus size={17} />
-              {t.createGoal}
-            </button>
-          </div>
-        </header>
+                <button className="primary" onClick={() => openGoalDialog()}>
+                  <Plus size={17} />
+                  {t.createGoal}
+                </button>
+              </div>
+            </header>
 
-        <section className="stats-grid" aria-label={t.dashboardTitle}>
-          <Stat label={t.active} value={activeGoals.length} />
-          <Stat label={t.done} value={doneGoals.length} />
-          <Stat label={t.soon} value={soonGoals.length} />
-          <Stat label={t.todayFocus} value={`${focusMinutes}m`} />
-        </section>
+            <section className="stats-grid" aria-label={t.dashboardTitle}>
+              <Stat label={t.active} value={activeGoals.length} />
+              <Stat label={t.done} value={doneGoals.length} />
+              <Stat label={t.soon} value={soonGoals.length} />
+              <Stat label={t.todayFocus} value={`${focusMinutes}m`} />
+            </section>
+          </>
+        ) : null}
 
         {currentView === "dashboard" ? (
           <DashboardView
@@ -2562,7 +2573,9 @@ function NotesView({
   const isStudyReadOnly = Boolean(selectedStudyNote && !isStudyEditing);
   const isPasteReadOnly = Boolean(selectedPasteNote && !isPasteEditing);
   const pasteEditorRef = useRef<HTMLDivElement | null>(null);
+  const studyEditorRef = useRef<HTMLDivElement | null>(null);
   const [pastePage, setPastePage] = useState(1);
+  const [activeStudyQuestion, setActiveStudyQuestion] = useState(0);
   const pasteBody = noteDraft.kind === "paste" ? noteDraft.body : "";
   const pastePages = useMemo(
     () => (isPasteReadOnly ? splitPasteHtmlIntoPages(pasteBody) : [pasteBody]),
@@ -2571,6 +2584,10 @@ function NotesView({
   const pasteTotalPages = Math.max(1, pastePages.length);
   const safePastePage = Math.min(pastePage, pasteTotalPages);
   const visiblePasteHtml = pastePages[safePastePage - 1] ?? "";
+  const activeQuestionIndex = Math.min(activeStudyQuestion, Math.max(0, selectedTemplate.items.length - 1));
+  const activeQuestion = selectedTemplate.items[activeQuestionIndex] ?? "";
+  const activeAnswerKey = `${selectedTemplate.id}-${activeQuestionIndex}`;
+  const activeAnswer = studyDraft.answers?.[activeAnswerKey] ?? "";
 
   useEffect(() => {
     if (noteMode === noteDraft.kind) return;
@@ -2616,6 +2633,24 @@ function NotesView({
     if (pastePage > pasteTotalPages) setPastePage(pasteTotalPages);
   }, [pastePage, pasteTotalPages]);
 
+  useEffect(() => {
+    setActiveStudyQuestion(0);
+  }, [selectedTemplate.id]);
+
+  useEffect(() => {
+    if (activeStudyQuestion >= selectedTemplate.items.length) {
+      setActiveStudyQuestion(Math.max(0, selectedTemplate.items.length - 1));
+    }
+  }, [activeStudyQuestion, selectedTemplate.items.length]);
+
+  useEffect(() => {
+    const editor = studyEditorRef.current;
+    if (noteMode !== "study" || !editor) return;
+    if (editor.innerHTML !== activeAnswer) {
+      editor.innerHTML = activeAnswer;
+    }
+  }, [activeAnswer, activeAnswerKey, noteMode]);
+
   function updatePasteBody() {
     if (noteMode !== "paste") return;
     const body = pasteEditorRef.current?.innerHTML ?? "";
@@ -2660,6 +2695,32 @@ function NotesView({
       };
       reader.readAsDataURL(file);
     });
+  }
+
+  function updateStudyAnswer() {
+    const html = studyEditorRef.current?.innerHTML ?? "";
+    setNoteDraft((current) => {
+      const base = current.kind === "study" ? current : studyDraft;
+      return {
+        ...base,
+        kind: "study",
+        answers: { ...(base.answers ?? {}), [activeAnswerKey]: html },
+      };
+    });
+  }
+
+  function applyStudyFormat(command: "bold" | "formatBlock", value?: string) {
+    if (isStudyReadOnly) return;
+    studyEditorRef.current?.focus();
+    document.execCommand(command, false, value);
+    updateStudyAnswer();
+  }
+
+  function applyStudyColor(color: string) {
+    if (isStudyReadOnly) return;
+    studyEditorRef.current?.focus();
+    document.execCommand("foreColor", false, color);
+    updateStudyAnswer();
   }
 
   if (noteMode === "paste") {
@@ -2815,35 +2876,64 @@ function NotesView({
             />
           </label>
 
-          <div className="template-answer-list">
+          <div className="study-answer-tabs" role="tablist" aria-label={t.noteTemplate}>
             {selectedTemplate.items.map((item, index) => {
               const key = `${selectedTemplate.id}-${index}`;
-              const answerRows = selectedTemplate.id === "tool" && index === 3 ? 6 : selectedTemplate.id === "tool" && index === 4 ? 9 : 3;
-              const heightClass =
-                selectedTemplate.id === "tool" && index === 3
-                  ? " common-operations-answer"
-                  : selectedTemplate.id === "tool" && index === 4
-                    ? " work-usage-answer"
-                    : "";
+              const hasAnswer = Boolean(stripHtml(studyDraft.answers?.[key] ?? ""));
               return (
-                <label className={`field question-field${heightClass}`} key={key}>
-                  <span>{item}</span>
-                  <textarea
-                    rows={answerRows}
-                    value={studyDraft.answers?.[key] ?? ""}
-                    disabled={isStudyReadOnly}
-                    onChange={(event) =>
-                      setNoteDraft({
-                        ...studyDraft,
-                        kind: "study",
-                        answers: { ...(studyDraft.answers ?? {}), [key]: event.target.value },
-                      })
-                    }
-                  />
-                </label>
+                <button
+                  className={`${activeQuestionIndex === index ? "active" : ""} ${hasAnswer ? "filled" : ""}`}
+                  key={key}
+                  onClick={() => setActiveStudyQuestion(index)}
+                  role="tab"
+                  type="button"
+                >
+                  <span>{index + 1}</span>
+                  {item}
+                </button>
               );
             })}
           </div>
+
+          <section className="study-answer-editor">
+            <div className="study-answer-head">
+              <h3>{activeQuestion}</h3>
+              <div className="rich-toolbar" aria-label="Study note formatting">
+                <button className="icon-btn" disabled={isStudyReadOnly} onClick={() => applyStudyFormat("bold")} title="Bold" type="button">
+                  <Bold size={16} />
+                </button>
+                <button
+                  className="icon-btn"
+                  disabled={isStudyReadOnly}
+                  onClick={() => applyStudyFormat("formatBlock", "blockquote")}
+                  title="Quote"
+                  type="button"
+                >
+                  <Quote size={16} />
+                </button>
+                {["#192028", "#d84a3f", "#1f74d1", "#16736b", "#8b5cf6"].map((color) => (
+                  <button
+                    aria-label={`Text color ${color}`}
+                    className="color-swatch"
+                    disabled={isStudyReadOnly}
+                    key={color}
+                    onClick={() => applyStudyColor(color)}
+                    style={{ background: color }}
+                    type="button"
+                  />
+                ))}
+              </div>
+            </div>
+            <div
+              aria-label={activeQuestion}
+              className={`study-rich-editor ${isStudyReadOnly ? "readonly" : ""}`}
+              contentEditable={!isStudyReadOnly}
+              onInput={updateStudyAnswer}
+              ref={studyEditorRef}
+              role="textbox"
+              suppressContentEditableWarning
+            />
+          </section>
         </div>
 
         <aside className="work-panel stack-list">

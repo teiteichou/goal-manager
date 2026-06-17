@@ -48,8 +48,8 @@ button svg {
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 24px;
+  gap: 18px;
+  padding: 22px;
   background: #eef3f4;
   border-right: 1px solid var(--line);
 }
@@ -84,12 +84,12 @@ button svg {
 .nav-list,
 .module-nav {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .module-nav-group {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
 .nav-item,
@@ -120,7 +120,7 @@ button svg {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-height: 42px;
+  min-height: 38px;
   padding: 0 14px;
   color: var(--muted);
   background: transparent;
@@ -170,8 +170,8 @@ button svg {
 
 .focus-panel {
   display: grid;
-  gap: 12px;
-  padding: 14px;
+  gap: 9px;
+  padding: 12px;
   margin-top: 0;
 }
 
@@ -207,24 +207,29 @@ h3 {
 
 .timer-ring {
   display: grid;
-  width: 116px;
-  height: 116px;
+  width: 100px;
+  height: 100px;
   place-items: center;
   justify-self: center;
-  border: 8px solid var(--accent-soft);
+  border: 7px solid var(--accent-soft);
   border-top-color: var(--accent);
   border-radius: 50%;
 }
 
 .timer-ring span {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
 }
 
 .timer-controls {
   display: grid;
-  grid-template-columns: 38px 1fr 38px;
-  gap: 8px;
+  grid-template-columns: 34px 1fr 34px;
+  gap: 7px;
+}
+
+.timer-controls .icon-btn,
+.timer-controls .primary {
+  min-height: 34px;
 }
 
 .focus-panel .field.compact span {
@@ -237,8 +242,8 @@ h3 {
 
 .companion-widget {
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px;
   overflow: hidden;
   background: linear-gradient(180deg, #f5fbf8 0%, #e6f4ef 100%);
   border: 1px solid var(--line);
@@ -247,7 +252,7 @@ h3 {
 
 .companion-stage {
   position: relative;
-  height: 112px;
+  height: 92px;
   overflow: hidden;
   background: #fdfefe;
   border: 1px solid #dbe8e4;
@@ -269,69 +274,80 @@ h3 {
 
 .companion-girl {
   position: absolute;
-  right: 24px;
-  bottom: 14px;
-  width: 54px;
-  height: 76px;
+  right: 22px;
+  bottom: 10px;
+  width: 58px;
+  height: 74px;
   animation: companion-breathe 2.8s ease-in-out infinite;
 }
 
 .companion-hair {
   position: absolute;
-  left: 9px;
-  top: 2px;
-  width: 36px;
-  height: 34px;
-  background: #2fb26f;
-  border-radius: 16px 16px 10px 10px;
+  left: 7px;
+  top: 0;
+  width: 44px;
+  height: 38px;
+  background: #25b86e;
+  border-radius: 18px 18px 14px 14px;
+  box-shadow: inset -7px -2px 0 #168b56;
 }
 
 .companion-face {
   position: absolute;
   left: 14px;
   top: 15px;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 28px;
   background: #ffd8bd;
   border-radius: 50%;
-  box-shadow: inset 7px 0 0 rgba(255, 255, 255, 0.16);
+  box-shadow: inset 8px 0 0 rgba(255, 255, 255, 0.16);
 }
 
 .companion-face::before,
 .companion-face::after {
   position: absolute;
   top: 10px;
-  width: 3px;
-  height: 3px;
+  width: 4px;
+  height: 4px;
   content: "";
   background: #26313d;
   border-radius: 50%;
 }
 
 .companion-face::before {
-  left: 7px;
+  left: 8px;
 }
 
 .companion-face::after {
-  right: 7px;
+  right: 8px;
 }
 
-.companion-body {
+.companion-face {
+  border-bottom: 2px solid rgba(165, 86, 72, 0.18);
+}
+
+.companion-face::before {
+  box-shadow: 12px 11px 0 -2px #d97073;
+}
+
+.companion-dress {
   position: absolute;
   left: 13px;
   bottom: 0;
-  width: 28px;
-  height: 36px;
-  background: #16736b;
-  border-radius: 14px 14px 8px 8px;
+  width: 32px;
+  height: 32px;
+  background: #fff;
+  border: 2px solid #dbe6e9;
+  border-radius: 15px 15px 8px 8px;
+  box-shadow: inset 0 -8px 0 #eef7f8;
 }
 
 .companion-book {
   position: absolute;
   left: 0;
-  top: 48px;
-  width: 32px;
-  height: 20px;
+  top: 47px;
+  width: 34px;
+  height: 19px;
   background: #ffffff;
   border: 2px solid #347bd1;
   border-radius: 3px;
@@ -340,8 +356,8 @@ h3 {
 
 .companion-bowl {
   position: absolute;
-  left: 2px;
-  top: 54px;
+  left: 0;
+  top: 51px;
   width: 30px;
   height: 13px;
   background: #fff;
@@ -351,7 +367,7 @@ h3 {
 
 .companion-sleep-mark {
   position: absolute;
-  right: -8px;
+  right: -5px;
   top: -2px;
   color: #6677aa;
   font-size: 13px;
@@ -364,29 +380,29 @@ h3 {
 .companion-bed,
 .companion-grass {
   position: absolute;
-  left: 14px;
-  bottom: 16px;
+  left: 12px;
+  bottom: 13px;
 }
 
 .companion-desk {
-  width: 80px;
-  height: 26px;
+  width: 76px;
+  height: 22px;
   background: #d8b27a;
   border-radius: 6px;
   box-shadow: 8px 24px 0 -8px #9b6b3e, 60px 24px 0 -8px #9b6b3e;
 }
 
 .companion-table {
-  width: 86px;
-  height: 24px;
+  width: 80px;
+  height: 22px;
   background: #e4b678;
   border-radius: 999px;
   box-shadow: 14px 22px 0 -9px #9d7145, 64px 22px 0 -9px #9d7145;
 }
 
 .companion-bed {
-  width: 92px;
-  height: 34px;
+  width: 84px;
+  height: 30px;
   background: #f7c7d8;
   border-radius: 8px;
   box-shadow: inset 0 12px 0 #fff;
@@ -397,15 +413,15 @@ h3 {
 }
 
 .companion-grass {
-  width: 92px;
-  height: 18px;
+  width: 84px;
+  height: 16px;
   background: #83d288;
   border-radius: 999px;
 }
 
 .companion-widget.sleep .companion-girl {
-  right: 54px;
-  bottom: 22px;
+  right: 48px;
+  bottom: 17px;
   transform: rotate(-10deg);
 }
 
@@ -864,6 +880,130 @@ h3 {
 .template-answer-list {
   display: grid;
   gap: 14px;
+}
+
+.study-answer-tabs {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.study-answer-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 240px;
+  min-height: 38px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  color: var(--muted);
+  background: #f7fafb;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.study-answer-tabs button span {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  color: #fff;
+  background: #9aa8b5;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.study-answer-tabs button.active {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.study-answer-tabs button.active span,
+.study-answer-tabs button.filled span {
+  background: var(--accent);
+}
+
+.study-answer-editor {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+}
+
+.study-answer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.study-answer-head h3 {
+  line-height: 1.45;
+}
+
+.rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.rich-toolbar .icon-btn {
+  width: 34px;
+  min-height: 34px;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.color-swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.study-rich-editor {
+  min-height: clamp(360px, calc(100vh - 380px), 720px);
+  padding: 16px;
+  overflow-y: auto;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  line-height: 1.75;
+  outline: none;
+  white-space: normal;
+}
+
+.study-rich-editor:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.study-rich-editor.readonly {
+  background: #f4f7f9;
+}
+
+.study-rich-editor blockquote {
+  margin: 12px 0;
+  padding: 10px 12px;
+  color: #43505f;
+  background: #f4f7f9;
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+}
+
+.study-rich-editor:empty::before {
+  color: #9aa8b5;
+  content: "Write your note here";
 }
 
 .question-field textarea {
