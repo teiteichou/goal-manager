@@ -94,6 +94,7 @@ type Texts = {
   longerFive: string;
   start: string;
   stop: string;
+  reset: string;
   backgroundSound: string;
   pageEyebrow: string;
   headline: string;
@@ -249,6 +250,7 @@ const translations: Record<Language, Texts> = {
     longerFive: "5分長くする",
     start: "開始",
     stop: "停止",
+    reset: "リセット",
     backgroundSound: "背景音",
     pageEyebrow: "RinaSpace",
     headline: "今日の小さな歩みを、静かに未来へつないでいく。",
@@ -261,7 +263,7 @@ const translations: Record<Language, Texts> = {
     done: "達成",
     soon: "期限間近",
     todayFocus: "今日の集中",
-    maxDailyFocus: "最大",
+    maxDailyFocus: "単日最大",
     goalList: "目標リスト",
     completed: "達成済み",
     missed: "未達成",
@@ -410,6 +412,7 @@ const translations: Record<Language, Texts> = {
     longerFive: "Add 5 minutes",
     start: "Start",
     stop: "Stop",
+    reset: "Reset",
     backgroundSound: "Background sound",
     pageEyebrow: "RinaSpace",
     headline: "Gather each small step today, and let it quietly become tomorrow.",
@@ -422,7 +425,7 @@ const translations: Record<Language, Texts> = {
     done: "Done",
     soon: "Due soon",
     todayFocus: "Focus today",
-    maxDailyFocus: "Best day",
+    maxDailyFocus: "Single-day best",
     goalList: "Goal list",
     completed: "Completed",
     missed: "Missed",
@@ -571,6 +574,7 @@ const translations: Record<Language, Texts> = {
     longerFive: "增加 5 分钟",
     start: "开始",
     stop: "停止",
+    reset: "重置",
     backgroundSound: "背景音",
     pageEyebrow: "RinaSpace",
     headline: "把今天的每一步，温柔地收藏成明天的光。",
@@ -583,7 +587,7 @@ const translations: Record<Language, Texts> = {
     done: "达成",
     soon: "临近期限",
     todayFocus: "今日专注",
-    maxDailyFocus: "每日最大",
+    maxDailyFocus: "单日专注最大",
     goalList: "目标列表",
     completed: "已达成",
     missed: "未达成",
@@ -1097,6 +1101,7 @@ export default function App() {
   });
   const [codeResult, setCodeResult] = useState("");
   const audioRef = useRef<{ context: AudioContext; oscillators: OscillatorNode[] } | null>(null);
+  const creditedFocusMinutesRef = useRef(0);
 
   useEffect(() => {
     localStorage.setItem(languageStoreKey, language);
@@ -1169,24 +1174,26 @@ export default function App() {
 
     const handle = window.setInterval(() => {
       setTimerSeconds((seconds) => {
+        const nextSeconds = Math.max(0, seconds - 1);
+        const elapsedSeconds = timerTotal - nextSeconds;
+        const earnedMinutes = Math.floor(elapsedSeconds / (5 * 60)) * 5;
+        const minutesToAdd = earnedMinutes - creditedFocusMinutesRef.current;
+
+        if (minutesToAdd > 0) {
+          creditedFocusMinutesRef.current = earnedMinutes;
+          addFocusMinutes(minutesToAdd);
+        }
+
         if (seconds <= 1) {
           window.clearInterval(handle);
           setTimerRunning(false);
           stopSound();
           playPing();
           notify(t.focusDoneTitle, t.focusDoneBody);
-          setFocusStats((stats) => {
-            const todayKey = toDateKey(new Date());
-            const next = {
-              ...stats,
-              [todayKey]: (stats[todayKey] ?? 0) + Math.round(timerTotal / 60),
-            };
-            saveFocusStats(next);
-            return next;
-          });
+          creditedFocusMinutesRef.current = 0;
           return timerTotal;
         }
-        return seconds - 1;
+        return nextSeconds;
       });
     }, 1000);
 
@@ -1226,6 +1233,18 @@ export default function App() {
     .padStart(2, "0")}:${Math.floor(timerSeconds % 60)
     .toString()
     .padStart(2, "0")}`;
+
+  function addFocusMinutes(minutes: number) {
+    setFocusStats((stats) => {
+      const todayKey = toDateKey(new Date());
+      const next = {
+        ...stats,
+        [todayKey]: (stats[todayKey] ?? 0) + minutes,
+      };
+      saveFocusStats(next);
+      return next;
+    });
+  }
 
   function updateGoalForm<K extends keyof GoalFormValues>(key: K, value: GoalFormValues[K]) {
     setGoalForm((current) => ({ ...current, [key]: value }));
@@ -1565,12 +1584,25 @@ export default function App() {
   function adjustTimer(minutes: number) {
     if (timerRunning) return;
     const next = Math.max(5 * 60, Math.min(120 * 60, timerTotal + minutes * 60));
+    creditedFocusMinutesRef.current = 0;
     setTimerTotal(next);
     setTimerSeconds(next);
   }
 
   function toggleTimer() {
-    setTimerRunning((running) => !running);
+    setTimerRunning((running) => {
+      if (!running && timerSeconds === timerTotal) {
+        creditedFocusMinutesRef.current = 0;
+      }
+      return !running;
+    });
+  }
+
+  function resetTimer() {
+    setTimerRunning(false);
+    stopSound();
+    creditedFocusMinutesRef.current = 0;
+    setTimerSeconds(timerTotal);
   }
 
   function requestNotifications() {
@@ -1697,9 +1729,14 @@ export default function App() {
         </nav>
 
         <section className="focus-panel">
-          <div>
-            <span className="eyebrow">{t.focusTimer}</span>
-            <h2>{t.shortFocus}</h2>
+          <div className="focus-head">
+            <div>
+              <span className="eyebrow">{t.focusTimer}</span>
+              <h2>{t.shortFocus}</h2>
+            </div>
+            <button className="icon-btn mini-icon" onClick={resetTimer} title={t.reset} type="button">
+              <RotateCcw size={15} />
+            </button>
           </div>
           <div className="timer-ring">
             <span>{timerDisplay}</span>

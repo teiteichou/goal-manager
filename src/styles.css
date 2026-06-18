@@ -175,6 +175,19 @@ button svg {
   margin-top: 0;
 }
 
+.focus-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.focus-head .mini-icon {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+
 .eyebrow {
   color: var(--accent);
   font-size: 12px;
