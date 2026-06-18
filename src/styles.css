@@ -566,18 +566,46 @@ h3 {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
 
 .stat {
   padding: 18px;
+  min-width: 0;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
 
-.stat span {
+.stat-button {
+  width: 100%;
+  height: auto;
+  cursor: pointer;
+}
+
+.stat-button:hover {
+  border-color: var(--accent);
+  box-shadow: 0 12px 28px rgba(20, 117, 107, 0.1);
+}
+
+.stat-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stat span,
+.stat small {
   color: var(--muted);
   font-size: 13px;
+}
+
+.stat small {
+  white-space: nowrap;
 }
 
 .stat strong {

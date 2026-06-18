@@ -18,14 +18,16 @@ import {
   StickyNote,
   Target,
   Timer,
+  Trash2,
   Wallet,
   X,
 } from "lucide-react";
 import {
-  loadFocusMinutes,
+  deleteRemoteGoal,
+  loadFocusStats,
   loadLocalGoals,
   loadRemoteGoals,
-  saveFocusMinutes,
+  saveFocusStats,
   saveLocalGoals,
   saveRemoteGoals,
 } from "./storage";
@@ -104,6 +106,7 @@ type Texts = {
   done: string;
   soon: string;
   todayFocus: string;
+  maxDailyFocus: string;
   goalList: string;
   completed: string;
   missed: string;
@@ -144,6 +147,7 @@ type Texts = {
   copy: string;
   edit: string;
   delete: string;
+  confirmDeleteGoal: string;
   review: string;
   rewardPrefix: string;
   copySuffix: string;
@@ -257,6 +261,7 @@ const translations: Record<Language, Texts> = {
     done: "達成",
     soon: "期限間近",
     todayFocus: "今日の集中",
+    maxDailyFocus: "最大",
     goalList: "目標リスト",
     completed: "達成済み",
     missed: "未達成",
@@ -297,6 +302,7 @@ const translations: Record<Language, Texts> = {
     copy: "コピー",
     edit: "編集",
     delete: "削除",
+    confirmDeleteGoal: "この目標を削除しますか？",
     review: "レビュー",
     rewardPrefix: "ご褒美",
     copySuffix: "（コピー）",
@@ -416,6 +422,7 @@ const translations: Record<Language, Texts> = {
     done: "Done",
     soon: "Due soon",
     todayFocus: "Focus today",
+    maxDailyFocus: "Best day",
     goalList: "Goal list",
     completed: "Completed",
     missed: "Missed",
@@ -456,6 +463,7 @@ const translations: Record<Language, Texts> = {
     copy: "Copy",
     edit: "Edit",
     delete: "Delete",
+    confirmDeleteGoal: "Do you want to delete this goal?",
     review: "Review",
     rewardPrefix: "Reward",
     copySuffix: " (copy)",
@@ -575,6 +583,7 @@ const translations: Record<Language, Texts> = {
     done: "达成",
     soon: "临近期限",
     todayFocus: "今日专注",
+    maxDailyFocus: "每日最大",
     goalList: "目标列表",
     completed: "已达成",
     missed: "未达成",
@@ -615,6 +624,7 @@ const translations: Record<Language, Texts> = {
     copy: "复制",
     edit: "编辑",
     delete: "删除",
+    confirmDeleteGoal: "是否要删除这个目标？",
     review: "复盘",
     rewardPrefix: "奖励",
     copySuffix: "（复制）",
@@ -1051,11 +1061,10 @@ export default function App() {
   const [reviewGoalId, setReviewGoalId] = useState<string | null>(null);
   const [reviewComment, setReviewComment] = useState("");
   const [extendReason, setExtendReason] = useState<ExtendReason>("scope");
-  const [extendedDate, setExtendedDate] = useState(toLocalInputValue(addMinutes(new Date(), 60 * 24)));
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [timerTotal, setTimerTotal] = useState(25 * 60);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [focusMinutes, setFocusMinutes] = useState(loadFocusMinutes);
+  const [focusStats, setFocusStats] = useState(() => loadFocusStats(toDateKey(new Date())));
   const [soundType, setSoundType] = useState<SoundType>("off");
   const [syncStatus, setSyncStatus] = useState<"waiting" | "local" | "synced">(
     isSupabaseConfigured ? "waiting" : "local",
@@ -1127,7 +1136,16 @@ export default function App() {
     }
 
     saveLocalGoals(goals);
-    saveRemoteGoals(goals);
+
+    if (!isSupabaseConfigured) {
+      setSyncStatus("local");
+      return;
+    }
+
+    setSyncStatus("waiting");
+    saveRemoteGoals(goals).then((saved) => {
+      setSyncStatus(saved ? "synced" : "local");
+    });
   }, [goals, t]);
 
   useEffect(() => {
@@ -1157,9 +1175,13 @@ export default function App() {
           stopSound();
           playPing();
           notify(t.focusDoneTitle, t.focusDoneBody);
-          setFocusMinutes((minutes) => {
-            const next = minutes + Math.round(timerTotal / 60);
-            saveFocusMinutes(next);
+          setFocusStats((stats) => {
+            const todayKey = toDateKey(new Date());
+            const next = {
+              ...stats,
+              [todayKey]: (stats[todayKey] ?? 0) + Math.round(timerTotal / 60),
+            };
+            saveFocusStats(next);
             return next;
           });
           return timerTotal;
@@ -1183,10 +1205,9 @@ export default function App() {
 
   const activeGoals = goals.filter((goal) => goal.status === "active");
   const doneGoals = goals.filter((goal) => goal.status === "done");
-  const soonGoals = activeGoals.filter((goal) => {
-    const hours = hoursUntil(goal.dueDate);
-    return hours >= 0 && hours <= 24;
-  });
+  const currentDateKey = toDateKey(new Date());
+  const focusMinutes = focusStats[currentDateKey] ?? 0;
+  const maxDailyFocus = Math.max(0, ...Object.values(focusStats));
   const selectedGoal = goals.find((goal) => goal.id === selectedId) ?? activeGoals[0] ?? null;
   const filteredGoals = goals
     .filter((goal) => (filter === "all" ? true : goal.category === filter))
@@ -1208,6 +1229,12 @@ export default function App() {
 
   function updateGoalForm<K extends keyof GoalFormValues>(key: K, value: GoalFormValues[K]) {
     setGoalForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function openGoalStatus(status: GoalStatus) {
+    setCurrentView("goals");
+    setView(status);
+    setFilter("all");
   }
 
   function openGoalDialog(goal?: Goal) {
@@ -1250,6 +1277,16 @@ export default function App() {
     setCurrentView("goals");
   }
 
+  function deleteGoal(goal: Goal) {
+    if (!window.confirm(t.confirmDeleteGoal)) return;
+
+    setGoals((current) => current.filter((item) => item.id !== goal.id));
+    setSelectedId((current) => (current === goal.id ? null : current));
+    deleteRemoteGoal(goal.id).then((deleted) => {
+      if (isSupabaseConfigured) setSyncStatus(deleted ? "synced" : "local");
+    });
+  }
+
   function markDone(goal: Goal) {
     setGoals((current) =>
       current.map((item) => (item.id === goal.id ? { ...item, status: "done", progress: 100 } : item)),
@@ -1265,10 +1302,12 @@ export default function App() {
   }
 
   function copyGoal(goal: Goal, titleSuffix = t.copySuffix) {
+    const originalDueDate = new Date(goal.dueDate);
     const next: Goal = {
       ...goal,
       id: crypto.randomUUID(),
       title: `${goal.title}${titleSuffix}`,
+      dueDate: originalDueDate.getTime() > Date.now() ? goal.dueDate : toLocalInputValue(addMinutes(new Date(), 60 * 24)),
       status: "active",
       progress: 0,
       createdAt: new Date().toISOString(),
@@ -1282,10 +1321,9 @@ export default function App() {
     setReviewGoalId(goal.id);
     setReviewComment("");
     setExtendReason("scope");
-    setExtendedDate(toLocalInputValue(addMinutes(new Date(goal.dueDate), 60 * 24)));
   }
 
-  function finalizeReview(mode: "extend" | "copy") {
+  function saveReview() {
     const goal = goals.find((item) => item.id === reviewGoalId);
     if (!goal) return;
 
@@ -1295,40 +1333,15 @@ export default function App() {
       date: new Date().toISOString(),
     };
 
-    if (mode === "copy") {
-      const next: Goal = {
-        ...goal,
-        id: crypto.randomUUID(),
-        title: `${goal.title}${t.retrySuffix}`,
-        dueDate: extendedDate,
-        status: "active",
-        progress: 0,
-        createdAt: new Date().toISOString(),
-        reviews: [review],
-      };
-      setGoals((current) => [next, ...current]);
-      setSelectedId(next.id);
-    } else {
-      setGoals((current) =>
-        current.map((item) =>
-          item.id === goal.id
-            ? {
-                ...item,
-                dueDate: extendedDate,
-                status: "active",
-                reviews: [...item.reviews, review],
-              }
-            : item,
-        ),
-      );
-    }
-
+    setGoals((current) =>
+      current.map((item) => (item.id === goal.id ? { ...item, reviews: [...item.reviews, review] } : item)),
+    );
     setReviewGoalId(null);
   }
 
   function submitReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    finalizeReview("extend");
+    saveReview();
   }
 
   function addNote(event: FormEvent<HTMLFormElement>) {
@@ -1751,10 +1764,9 @@ export default function App() {
 
         {showStatsGrid ? (
             <section className="stats-grid" aria-label={t.dashboardTitle}>
-              <Stat label={t.active} value={activeGoals.length} />
-              <Stat label={t.done} value={doneGoals.length} />
-              <Stat label={t.soon} value={soonGoals.length} />
-              <Stat label={t.todayFocus} value={`${focusMinutes}m`} />
+              <Stat label={t.active} value={activeGoals.length} onClick={() => openGoalStatus("active")} />
+              <Stat label={t.done} value={doneGoals.length} onClick={() => openGoalStatus("done")} />
+              <Stat label={t.todayFocus} value={`${focusMinutes}m`} meta={`${t.maxDailyFocus} ${maxDailyFocus}m`} />
             </section>
         ) : null}
 
@@ -1777,6 +1789,7 @@ export default function App() {
           <GoalsView
             addProgress={addProgress}
             copyGoal={copyGoal}
+            deleteGoal={deleteGoal}
             filter={filter}
             filteredGoals={filteredGoals}
             language={language}
@@ -1946,7 +1959,7 @@ export default function App() {
         <div className="modal-backdrop" role="presentation">
           <form className="goal-form modal" onSubmit={submitReview}>
             <div className="dialog-head">
-              <h2>{t.missedReview}</h2>
+              <h2>{t.review}</h2>
               <button className="icon-btn" type="button" onClick={() => setReviewGoalId(null)} title={t.close}>
                 <X size={17} />
               </button>
@@ -1961,32 +1974,12 @@ export default function App() {
                 onChange={(event) => setReviewComment(event.target.value)}
               />
             </label>
-            <label className="field wide">
-              <span>{t.extendReason}</span>
-              <select value={extendReason} onChange={(event) => setExtendReason(event.target.value as ExtendReason)}>
-                {Object.entries(t.reason).map(([value, label]) => (
-                  <option value={value} key={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field wide">
-              <span>{t.newDueDate}</span>
-              <input
-                type="datetime-local"
-                required
-                value={extendedDate}
-                onChange={(event) => setExtendedDate(event.target.value)}
-              />
-            </label>
             <div className="dialog-actions">
-              <button className="ghost" type="button" onClick={() => finalizeReview("copy")}>
-                <Copy size={15} />
-                {t.copyAsNew}
+              <button className="ghost" type="button" onClick={() => setReviewGoalId(null)}>
+                {t.cancel}
               </button>
               <button className="primary" type="submit">
-                {t.extend}
+                {t.save}
               </button>
             </div>
           </form>
@@ -1996,12 +1989,33 @@ export default function App() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number | string }) {
-  return (
-    <article className="stat">
-      <span>{label}</span>
+function Stat({
+  label,
+  meta,
+  onClick,
+  value,
+}: {
+  label: string;
+  meta?: string;
+  onClick?: () => void;
+  value: number | string;
+}) {
+  const content = (
+    <>
+      <div className="stat-head">
+        <span>{label}</span>
+        {meta ? <small>{meta}</small> : null}
+      </div>
       <strong>{value}</strong>
-    </article>
+    </>
+  );
+
+  return onClick ? (
+    <button className="stat stat-button" onClick={onClick} type="button">
+      {content}
+    </button>
+  ) : (
+    <article className="stat">{content}</article>
   );
 }
 
@@ -2090,6 +2104,7 @@ function GoalsView({
   addProgress,
   coachText,
   copyGoal,
+  deleteGoal,
   filter,
   filteredGoals,
   language,
@@ -2107,6 +2122,7 @@ function GoalsView({
   addProgress: (goal: Goal) => void;
   coachText: () => string;
   copyGoal: (goal: Goal) => void;
+  deleteGoal: (goal: Goal) => void;
   filter: GoalCategory | "all";
   filteredGoals: Goal[];
   language: Language;
@@ -2162,6 +2178,7 @@ function GoalsView({
               <GoalCard
                 addProgress={addProgress}
                 copyGoal={copyGoal}
+                deleteGoal={deleteGoal}
                 goal={goal}
                 key={goal.id}
                 language={language}
@@ -3272,6 +3289,7 @@ function GoalCard({
   addProgress,
   markDone,
   copyGoal,
+  deleteGoal,
   openGoalDialog,
   openReview,
   language,
@@ -3282,6 +3300,7 @@ function GoalCard({
   addProgress: (goal: Goal) => void;
   markDone: (goal: Goal) => void;
   copyGoal: (goal: Goal) => void;
+  deleteGoal: (goal: Goal) => void;
   openGoalDialog: (goal: Goal) => void;
   openReview: (goal: Goal) => void;
   language: Language;
@@ -3322,7 +3341,7 @@ function GoalCard({
               </button>
             </>
           ) : null}
-          {goal.status === "missed" ? (
+          {goal.status === "done" || goal.status === "missed" ? (
             <button className="ghost small" onClick={() => openReview(goal)}>
               {t.review}
             </button>
@@ -3331,9 +3350,15 @@ function GoalCard({
             <Copy size={15} />
             {t.copy}
           </button>
-          <button className="ghost small" onClick={() => openGoalDialog(goal)}>
-            <Edit3 size={15} />
-            {t.edit}
+          {goal.status === "active" ? (
+            <button className="ghost small" onClick={() => openGoalDialog(goal)}>
+              <Edit3 size={15} />
+              {t.edit}
+            </button>
+          ) : null}
+          <button className="ghost small danger-action" onClick={() => deleteGoal(goal)}>
+            <Trash2 size={15} />
+            {t.delete}
           </button>
         </div>
       </div>
