@@ -179,7 +179,6 @@ type Texts = {
   entryDate: string;
   financeCategory: string;
   selectedDateDetails: string;
-  monthDetails: string;
   previousMonth: string;
   nextMonth: string;
   todayExpense: string;
@@ -343,7 +342,6 @@ const translations: Record<Language, Texts> = {
     entryDate: "日付",
     financeCategory: "分類",
     selectedDateDetails: "選択日の明細",
-    monthDetails: "当月の明細",
     previousMonth: "前月",
     nextMonth: "翌月",
     todayExpense: "本日支出",
@@ -513,7 +511,6 @@ const translations: Record<Language, Texts> = {
     entryDate: "Date",
     financeCategory: "Category",
     selectedDateDetails: "Selected date details",
-    monthDetails: "Monthly details",
     previousMonth: "Previous month",
     nextMonth: "Next month",
     todayExpense: "Today's spending",
@@ -683,7 +680,6 @@ const translations: Record<Language, Texts> = {
     entryDate: "日期",
     financeCategory: "分类",
     selectedDateDetails: "选中日期明细",
-    monthDetails: "本月记账明细",
     previousMonth: "上个月",
     nextMonth: "下个月",
     todayExpense: "本日支出",
@@ -1305,8 +1301,6 @@ export default function App() {
     .sort((a, b) => a.reminderAt.getTime() - b.reminderAt.getTime())
     .slice(0, 5);
   const upcomingGoals = [...activeGoals].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 6);
-  const incomeTotal = financeEntries.filter((entry) => entry.kind === "income").reduce((sum, entry) => sum + entry.amount, 0);
-  const expenseTotal = financeEntries.filter((entry) => entry.kind === "expense").reduce((sum, entry) => sum + entry.amount, 0);
   const syncLabel = syncStatus === "synced" ? t.syncDone : syncStatus === "waiting" ? t.syncWaiting : t.syncLocal;
   const timerDisplay = `${Math.floor(timerSeconds / 60)
     .toString()
@@ -1909,8 +1903,12 @@ export default function App() {
             <section className="stats-grid" aria-label={t.dashboardTitle}>
               <Stat label={t.active} value={activeGoals.length} onClick={() => openGoalStatus("active")} />
               <Stat label={t.done} value={doneGoals.length} onClick={() => openGoalStatus("done")} />
-              <Stat label={t.todayExpense} value={formatMoney(todayExpense, language)} />
-              <Stat label={t.monthExpense} value={formatMoney(monthExpense, language)} />
+              <Stat
+                label={t.todayExpense}
+                value={formatMoney(todayExpense, language)}
+                meta={`${t.monthExpense} ${formatMoney(monthExpense, language)}`}
+                onClick={() => setCurrentView("finance")}
+              />
               <Stat label={t.todayFocus} value={`${focusMinutes}m`} meta={`${t.maxDailyFocus} ${maxDailyFocus}m`} />
             </section>
         ) : null}
@@ -3216,9 +3214,6 @@ function FinanceView({
     .filter((entry) => monthKey(new Date(entry.date)) === currentMonth)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const selectedDateEntries = monthEntries.filter((entry) => toDateKey(new Date(entry.date)) === selectedDate);
-  const visibleEntries = selectedDateEntries.length ? selectedDateEntries : monthEntries;
-  const monthIncome = monthEntries.filter((entry) => entry.kind === "income").reduce((sum, entry) => sum + entry.amount, 0);
-  const monthExpense = monthEntries.filter((entry) => entry.kind === "expense").reduce((sum, entry) => sum + entry.amount, 0);
   const monthDays = useMemo(() => {
     const year = visibleMonth.getFullYear();
     const month = visibleMonth.getMonth();
@@ -3337,11 +3332,11 @@ function FinanceView({
 
         <div className="work-panel finance-detail-panel">
           <div className="section-head">
-            <h2>{selectedDateEntries.length ? t.selectedDateDetails : t.monthDetails}</h2>
+            <h2>{t.selectedDateDetails}</h2>
           </div>
           <div className="stack-list">
-            {visibleEntries.length ? (
-              visibleEntries.map((entry) => (
+            {selectedDateEntries.length ? (
+              selectedDateEntries.map((entry) => (
                 <article className="finance-entry-card" key={entry.id}>
                   <div>
                     <strong>{entry.title}</strong>
@@ -3380,12 +3375,6 @@ function FinanceView({
           <button className="icon-btn" onClick={() => changeMonth(1)} type="button" aria-label={t.nextMonth}>
             {"›"}
           </button>
-        </div>
-
-        <div className="finance-summary">
-          <Stat label={t.totalIncome} value={formatMoney(monthIncome)} />
-          <Stat label={t.totalExpense} value={formatMoney(monthExpense)} />
-          <Stat label={t.balance} value={formatMoney(monthIncome - monthExpense)} />
         </div>
 
         <div className="calendar-weekdays" aria-hidden="true">
