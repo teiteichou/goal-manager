@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from "./supabaseClient";
-import type { Goal, GoalCategory, GoalStatus } from "./types";
+import type { FinanceEntry, FinanceKind, Goal, GoalCategory, GoalStatus } from "./types";
 
 const storeKey = "rinaspace-goals-v1";
 const focusStoreKey = "rinaspace-focus-minutes";
@@ -34,6 +34,18 @@ type GoalRow = {
   progress: number;
   reviews: Goal["reviews"];
   created_at: string;
+  updated_at?: string;
+};
+
+type FinanceEntryRow = {
+  id: string;
+  title: string;
+  amount: number;
+  kind: FinanceKind;
+  category: string;
+  memo: string;
+  entry_date: string;
+  created_at?: string;
   updated_at?: string;
 };
 
@@ -74,6 +86,31 @@ function toLocalInputValue(date: Date) {
   const offset = date.getTimezoneOffset();
   const local = new Date(date.getTime() - offset * 60_000);
   return local.toISOString().slice(0, 16);
+}
+
+function financeEntryToRow(entry: FinanceEntry): FinanceEntryRow {
+  return {
+    id: entry.id,
+    title: entry.title,
+    amount: entry.amount,
+    kind: entry.kind,
+    category: entry.category || "other",
+    memo: entry.memo,
+    entry_date: new Date(entry.date).toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function rowToFinanceEntry(row: FinanceEntryRow): FinanceEntry {
+  return {
+    id: row.id,
+    title: row.title,
+    amount: Number(row.amount),
+    kind: row.kind,
+    category: row.category || "other",
+    date: row.entry_date,
+    memo: row.memo ?? "",
+  };
 }
 
 export function loadLocalGoals(fallback: Goal[]): Goal[] {
@@ -148,6 +185,48 @@ export async function deleteRemoteGoal(id: string) {
   const { error } = await supabase.from("goals").delete().eq("id", id);
   if (error) {
     console.warn("Supabase delete failed. Data remains saved locally.", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function loadRemoteFinanceEntries(): Promise<FinanceEntry[] | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+
+  const { data, error } = await supabase
+    .from("finance_entries")
+    .select("id,title,amount,kind,category,memo,entry_date,created_at,updated_at")
+    .order("entry_date", { ascending: false });
+
+  if (error) {
+    console.warn("Supabase finance load failed. Falling back to localStorage.", error.message);
+    return null;
+  }
+
+  return (data as FinanceEntryRow[]).map(rowToFinanceEntry);
+}
+
+export async function saveRemoteFinanceEntries(entries: FinanceEntry[]) {
+  if (!isSupabaseConfigured || !supabase) return false;
+  if (!entries.length) return true;
+
+  const rows = entries.map(financeEntryToRow);
+  const { error } = await supabase.from("finance_entries").upsert(rows, { onConflict: "id" });
+  if (error) {
+    console.warn("Supabase finance save failed. Data remains saved locally.", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteRemoteFinanceEntry(id: string) {
+  if (!isSupabaseConfigured || !supabase) return false;
+
+  const { error } = await supabase.from("finance_entries").delete().eq("id", id);
+  if (error) {
+    console.warn("Supabase finance delete failed. Data remains saved locally.", error.message);
     return false;
   }
 

@@ -579,7 +579,7 @@ h3 {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -1170,12 +1170,133 @@ h3 {
   font-size: 22px;
 }
 
+.finance-workspace {
+  display: grid;
+  grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.35fr);
+  align-items: stretch;
+  gap: 18px;
+}
+
+.finance-left-column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 100%;
+}
+
+.finance-form,
+.finance-calendar-panel,
+.finance-detail-panel {
+  align-content: start;
+}
+
+.finance-form {
+  gap: 10px;
+  padding: 16px 18px;
+}
+
+.finance-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.finance-form .field {
+  gap: 5px;
+}
+
+.finance-form .field input,
+.finance-form .field select {
+  padding: 9px 10px;
+}
+
+.finance-form .segmented {
+  min-height: 38px;
+}
+
+.finance-form .primary {
+  min-height: 40px;
+}
+
+.finance-calendar-panel {
+  min-width: 0;
+}
+
+.finance-detail-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.finance-month-head {
+  margin-bottom: 10px;
+}
+
+.finance-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.finance-day {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-height: 74px;
+  padding: 8px;
+  color: var(--ink);
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.finance-day:hover,
+.finance-day.selected {
+  border-color: var(--accent);
+  box-shadow: 0 8px 18px rgba(20, 117, 107, 0.1);
+}
+
+.finance-day.muted {
+  color: #a4afba;
+  background: #f7f9fb;
+}
+
+.finance-day div {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.finance-entry-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.finance-entry-card span,
+.finance-entry-card p {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.finance-entry-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .money-plus {
-  color: var(--accent-strong);
+  color: var(--rose);
 }
 
 .money-minus {
-  color: var(--rose);
+  color: var(--accent-strong);
 }
 
 .code-main {
@@ -1747,6 +1868,7 @@ h3 {
   .two-column-work,
   .code-workspace,
   .calendar-workspace,
+  .finance-workspace,
   .notes-workspace,
   .study-notes-workspace,
   .paste-notes-workspace,

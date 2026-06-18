@@ -2,6 +2,7 @@ export type GoalCategory = "long" | "middle" | "day" | "hour" | "minute";
 export type GoalStatus = "active" | "done" | "missed";
 export type ExtendReason = "scope" | "priority" | "health" | "resource";
 export type SoundType = "off" | "library" | "forest" | "exam" | "field" | "classroom" | "rain";
+export type FinanceKind = "income" | "expense";
 
 export type GoalReview = {
   comment: string;
@@ -27,3 +28,13 @@ export type GoalFormValues = Pick<
   Goal,
   "id" | "title" | "category" | "dueDate" | "notes" | "reward" | "reminderPreset"
 >;
+
+export type FinanceEntry = {
+  id: string;
+  title: string;
+  amount: number;
+  kind: FinanceKind;
+  category: string;
+  date: string;
+  memo: string;
+};

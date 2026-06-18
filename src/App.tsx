@@ -24,19 +24,21 @@ import {
 } from "lucide-react";
 import {
   deleteRemoteGoal,
+  deleteRemoteFinanceEntry,
   loadFocusStats,
   loadLocalGoals,
+  loadRemoteFinanceEntries,
   loadRemoteGoals,
+  saveRemoteFinanceEntries,
   saveFocusStats,
   saveLocalGoals,
   saveRemoteGoals,
 } from "./storage";
 import { isSupabaseConfigured } from "./supabaseClient";
-import type { ExtendReason, Goal, GoalCategory, GoalFormValues, GoalStatus, SoundType } from "./types";
+import type { ExtendReason, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalFormValues, GoalStatus, SoundType } from "./types";
 
 type Language = "ja" | "en" | "zh";
 type ViewKey = "dashboard" | "goals" | "calendar" | "notes" | "finance" | "code";
-type FinanceKind = "income" | "expense";
 type CodeLanguage = "java" | "oracle" | "react" | "javascript";
 type NoteKind = "idea" | "study" | "paste";
 
@@ -58,15 +60,6 @@ type NoteItem = {
   body: string;
   answers?: Record<string, string>;
   createdAt: string;
-};
-
-type FinanceEntry = {
-  id: string;
-  title: string;
-  amount: number;
-  kind: FinanceKind;
-  date: string;
-  memo: string;
 };
 
 type CodeSnippet = {
@@ -183,6 +176,14 @@ type Texts = {
   no: string;
   financeTitle: string;
   financeNamePlaceholder: string;
+  entryDate: string;
+  financeCategory: string;
+  selectedDateDetails: string;
+  monthDetails: string;
+  previousMonth: string;
+  nextMonth: string;
+  todayExpense: string;
+  monthExpense: string;
   amount: string;
   income: string;
   expense: string;
@@ -339,6 +340,14 @@ const translations: Record<Language, Texts> = {
     no: "NO",
     financeTitle: "記帳",
     financeNamePlaceholder: "例：参考書、給料、カフェ",
+    entryDate: "日付",
+    financeCategory: "分類",
+    selectedDateDetails: "選択日の明細",
+    monthDetails: "当月の明細",
+    previousMonth: "前月",
+    nextMonth: "翌月",
+    todayExpense: "本日支出",
+    monthExpense: "今月支出",
     amount: "金額",
     income: "収入",
     expense: "支出",
@@ -501,6 +510,14 @@ const translations: Record<Language, Texts> = {
     no: "NO",
     financeTitle: "Finance",
     financeNamePlaceholder: "Example: textbook, salary, cafe",
+    entryDate: "Date",
+    financeCategory: "Category",
+    selectedDateDetails: "Selected date details",
+    monthDetails: "Monthly details",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
+    todayExpense: "Today's spending",
+    monthExpense: "Monthly spending",
     amount: "Amount",
     income: "Income",
     expense: "Expense",
@@ -663,6 +680,14 @@ const translations: Record<Language, Texts> = {
     no: "NO",
     financeTitle: "记账",
     financeNamePlaceholder: "例：参考书、工资、咖啡",
+    entryDate: "日期",
+    financeCategory: "分类",
+    selectedDateDetails: "选中日期明细",
+    monthDetails: "本月记账明细",
+    previousMonth: "上个月",
+    nextMonth: "下个月",
+    todayExpense: "本日支出",
+    monthExpense: "本月总支出",
     amount: "金额",
     income: "收入",
     expense: "支出",
@@ -703,6 +728,36 @@ const notesStoreKey = "rinaspace-notes-v1";
 const financeStoreKey = "rinaspace-finance-v1";
 const codeStoreKey = "rinaspace-code-snippets-v1";
 const calendarStoreKey = "rinaspace-calendar-events-v1";
+
+const financeCategoryLabels: Record<Language, Record<string, string>> = {
+  ja: {
+    daily: "日常",
+    food: "食費",
+    transport: "交通",
+    learning: "学習",
+    salary: "給与",
+    bonus: "ボーナス",
+    other: "その他",
+  },
+  en: {
+    daily: "Daily",
+    food: "Food",
+    transport: "Transport",
+    learning: "Learning",
+    salary: "Salary",
+    bonus: "Bonus",
+    other: "Other",
+  },
+  zh: {
+    daily: "日常",
+    food: "餐饮",
+    transport: "交通",
+    learning: "学习",
+    salary: "工资",
+    bonus: "奖金",
+    other: "其他",
+  },
+};
 
 const codeLanguageLabels: Record<CodeLanguage, string> = {
   java: "Java",
@@ -1091,8 +1146,11 @@ export default function App() {
     title: "",
     amount: "",
     kind: "expense" as FinanceKind,
+    date: toDateKey(new Date()),
+    category: "daily",
     memo: "",
   });
+  const [editingFinanceId, setEditingFinanceId] = useState<string | null>(null);
   const [codeDraft, setCodeDraft] = useState({
     title: "",
     language: "javascript" as CodeLanguage,
@@ -1116,6 +1174,20 @@ export default function App() {
       setGoals(remoteGoals);
       saveLocalGoals(remoteGoals);
       setSyncStatus("synced");
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    loadRemoteFinanceEntries().then((remoteEntries) => {
+      if (!alive || !remoteEntries?.length) return;
+      setFinanceEntries(remoteEntries);
+      localStorage.setItem(financeStoreKey, JSON.stringify(remoteEntries));
     });
 
     return () => {
@@ -1159,6 +1231,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem(financeStoreKey, JSON.stringify(financeEntries));
+    saveRemoteFinanceEntries(financeEntries);
   }, [financeEntries]);
 
   useEffect(() => {
@@ -1215,6 +1288,13 @@ export default function App() {
   const currentDateKey = toDateKey(new Date());
   const focusMinutes = focusStats[currentDateKey] ?? 0;
   const maxDailyFocus = Math.max(0, ...Object.values(focusStats));
+  const currentMonthKey = monthKey(new Date());
+  const todayExpense = financeEntries
+    .filter((entry) => entry.kind === "expense" && toDateKey(new Date(entry.date)) === currentDateKey)
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const monthExpense = financeEntries
+    .filter((entry) => entry.kind === "expense" && monthKey(new Date(entry.date)) === currentMonthKey)
+    .reduce((sum, entry) => sum + entry.amount, 0);
   const selectedGoal = goals.find((goal) => goal.id === selectedId) ?? activeGoals[0] ?? null;
   const filteredGoals = goals
     .filter((goal) => (filter === "all" ? true : goal.category === filter))
@@ -1528,18 +1608,44 @@ export default function App() {
     event.preventDefault();
     const amount = Number(financeDraft.amount);
     if (!financeDraft.title.trim() || !Number.isFinite(amount) || amount <= 0) return;
-    setFinanceEntries((current) => [
-      {
-        id: crypto.randomUUID(),
-        title: financeDraft.title.trim(),
-        amount,
-        kind: financeDraft.kind,
-        memo: financeDraft.memo.trim(),
-        date: new Date().toISOString(),
-      },
-      ...current,
-    ]);
-    setFinanceDraft({ title: "", amount: "", kind: "expense", memo: "" });
+    const existing = financeEntries.find((entry) => entry.id === editingFinanceId);
+    const nextEntry: FinanceEntry = {
+      id: editingFinanceId ?? crypto.randomUUID(),
+      title: financeDraft.title.trim(),
+      amount,
+      kind: financeDraft.kind,
+      category: financeDraft.category,
+      memo: financeDraft.memo.trim(),
+      date: new Date(`${financeDraft.date}T12:00:00`).toISOString(),
+    };
+    setFinanceEntries((current) =>
+      existing ? current.map((entry) => (entry.id === existing.id ? nextEntry : entry)) : [nextEntry, ...current],
+    );
+    resetFinanceDraft();
+  }
+
+  function editFinanceEntry(entry: FinanceEntry) {
+    setEditingFinanceId(entry.id);
+    setFinanceDraft({
+      title: entry.title,
+      amount: String(entry.amount),
+      kind: entry.kind,
+      date: toDateKey(new Date(entry.date)),
+      category: entry.category || "daily",
+      memo: entry.memo,
+    });
+    setCurrentView("finance");
+  }
+
+  function deleteFinanceEntry(id: string) {
+    setFinanceEntries((current) => current.filter((entry) => entry.id !== id));
+    deleteRemoteFinanceEntry(id);
+    if (editingFinanceId === id) resetFinanceDraft();
+  }
+
+  function resetFinanceDraft() {
+    setEditingFinanceId(null);
+    setFinanceDraft({ title: "", amount: "", kind: "expense", date: toDateKey(new Date()), category: "daily", memo: "" });
   }
 
   function runCode() {
@@ -1803,16 +1909,14 @@ export default function App() {
             <section className="stats-grid" aria-label={t.dashboardTitle}>
               <Stat label={t.active} value={activeGoals.length} onClick={() => openGoalStatus("active")} />
               <Stat label={t.done} value={doneGoals.length} onClick={() => openGoalStatus("done")} />
+              <Stat label={t.todayExpense} value={formatMoney(todayExpense, language)} />
+              <Stat label={t.monthExpense} value={formatMoney(monthExpense, language)} />
               <Stat label={t.todayFocus} value={`${focusMinutes}m`} meta={`${t.maxDailyFocus} ${maxDailyFocus}m`} />
             </section>
         ) : null}
 
         {currentView === "dashboard" ? (
           <DashboardView
-            balance={incomeTotal - expenseTotal}
-            expenseTotal={expenseTotal}
-            formatMoney={(amount) => formatMoney(amount, language)}
-            incomeTotal={incomeTotal}
             notes={notes}
             openGoalDialog={openGoalDialog}
             setCurrentView={setCurrentView}
@@ -1882,12 +1986,14 @@ export default function App() {
         {currentView === "finance" ? (
           <FinanceView
             addFinanceEntry={addFinanceEntry}
-            expenseTotal={expenseTotal}
+            deleteFinanceEntry={deleteFinanceEntry}
+            editFinanceEntry={editFinanceEntry}
+            editingFinanceId={editingFinanceId}
             financeDraft={financeDraft}
             financeEntries={financeEntries}
             formatMoney={(amount) => formatMoney(amount, language)}
-            incomeTotal={incomeTotal}
             language={language}
+            resetFinanceDraft={resetFinanceDraft}
             setFinanceDraft={setFinanceDraft}
             t={t}
           />
@@ -2057,10 +2163,6 @@ function Stat({
 }
 
 function DashboardView({
-  balance,
-  expenseTotal,
-  formatMoney,
-  incomeTotal,
   notes,
   openGoalDialog,
   setCurrentView,
@@ -2068,10 +2170,6 @@ function DashboardView({
   upcomingGoals,
   language,
 }: {
-  balance: number;
-  expenseTotal: number;
-  formatMoney: (amount: number) => string;
-  incomeTotal: number;
   notes: NoteItem[];
   openGoalDialog: () => void;
   setCurrentView: (view: ViewKey) => void;
@@ -2100,11 +2198,6 @@ function DashboardView({
             <span>{t.notesTitle}</span>
             <strong>{notes.length}</strong>
           </button>
-          <button onClick={() => setCurrentView("finance")}>
-            <Wallet size={18} />
-            <span>{t.balance}</span>
-            <strong>{formatMoney(balance)}</strong>
-          </button>
         </div>
       </div>
 
@@ -2121,16 +2214,6 @@ function DashboardView({
           ) : (
             <div className="empty compact-empty">{t.noUpcoming}</div>
           )}
-        </div>
-      </div>
-
-      <div className="work-panel">
-        <h2>{t.financeTitle}</h2>
-        <div className="finance-mini">
-          <span>{t.totalIncome}</span>
-          <strong>{formatMoney(incomeTotal)}</strong>
-          <span>{t.totalExpense}</span>
-          <strong>{formatMoney(expenseTotal)}</strong>
         </div>
       </div>
     </section>
@@ -3099,98 +3182,241 @@ function NotesView({
 
 function FinanceView({
   addFinanceEntry,
-  expenseTotal,
+  deleteFinanceEntry,
+  editFinanceEntry,
+  editingFinanceId,
   financeDraft,
   financeEntries,
   formatMoney,
-  incomeTotal,
   language,
+  resetFinanceDraft,
   setFinanceDraft,
   t,
 }: {
   addFinanceEntry: (event: FormEvent<HTMLFormElement>) => void;
-  expenseTotal: number;
-  financeDraft: { title: string; amount: string; kind: FinanceKind; memo: string };
+  deleteFinanceEntry: (id: string) => void;
+  editFinanceEntry: (entry: FinanceEntry) => void;
+  editingFinanceId: string | null;
+  financeDraft: { title: string; amount: string; kind: FinanceKind; date: string; category: string; memo: string };
   financeEntries: FinanceEntry[];
   formatMoney: (amount: number) => string;
-  incomeTotal: number;
   language: Language;
-  setFinanceDraft: (draft: { title: string; amount: string; kind: FinanceKind; memo: string }) => void;
+  resetFinanceDraft: () => void;
+  setFinanceDraft: (draft: { title: string; amount: string; kind: FinanceKind; date: string; category: string; memo: string }) => void;
   t: Texts;
 }) {
-  return (
-    <section className="two-column-work">
-      <form className="work-panel stack-form" onSubmit={addFinanceEntry}>
-        <h2>{t.financeTitle}</h2>
-        <label className="field">
-          <span>{t.title}</span>
-          <input
-            required
-            placeholder={t.financeNamePlaceholder}
-            value={financeDraft.title}
-            onChange={(event) => setFinanceDraft({ ...financeDraft, title: event.target.value })}
-          />
-        </label>
-        <label className="field">
-          <span>{t.amount}</span>
-          <input
-            required
-            min="1"
-            type="number"
-            value={financeDraft.amount}
-            onChange={(event) => setFinanceDraft({ ...financeDraft, amount: event.target.value })}
-          />
-        </label>
-        <div className="segmented">
-          <button
-            className={`segment ${financeDraft.kind === "expense" ? "active" : ""}`}
-            type="button"
-            onClick={() => setFinanceDraft({ ...financeDraft, kind: "expense" })}
-          >
-            {t.expense}
-          </button>
-          <button
-            className={`segment ${financeDraft.kind === "income" ? "active" : ""}`}
-            type="button"
-            onClick={() => setFinanceDraft({ ...financeDraft, kind: "income" })}
-          >
-            {t.income}
-          </button>
-        </div>
-        <label className="field">
-          <span>{t.memo}</span>
-          <input value={financeDraft.memo} onChange={(event) => setFinanceDraft({ ...financeDraft, memo: event.target.value })} />
-        </label>
-        <button className="primary" type="submit">
-          <Plus size={16} />
-          {t.addEntry}
-        </button>
-      </form>
+  const todayKey = toDateKey(new Date());
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const locale = language === "ja" ? "ja-JP" : language === "zh" ? "zh-CN" : "en-US";
+  const monthTitle = new Intl.DateTimeFormat(locale, { year: "numeric", month: "long" }).format(visibleMonth);
+  const currentMonth = monthKey(visibleMonth);
+  const categoryLabels = financeCategoryLabels[language];
+  const monthEntries = financeEntries
+    .filter((entry) => monthKey(new Date(entry.date)) === currentMonth)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const selectedDateEntries = monthEntries.filter((entry) => toDateKey(new Date(entry.date)) === selectedDate);
+  const visibleEntries = selectedDateEntries.length ? selectedDateEntries : monthEntries;
+  const monthIncome = monthEntries.filter((entry) => entry.kind === "income").reduce((sum, entry) => sum + entry.amount, 0);
+  const monthExpense = monthEntries.filter((entry) => entry.kind === "expense").reduce((sum, entry) => sum + entry.amount, 0);
+  const monthDays = useMemo(() => {
+    const year = visibleMonth.getFullYear();
+    const month = visibleMonth.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const firstVisible = new Date(year, month, 1 - firstOfMonth.getDay());
 
-      <div className="work-panel">
-        <h2>{t.financeTitle}</h2>
-        <div className="finance-summary">
-          <Stat label={t.balance} value={formatMoney(incomeTotal - expenseTotal)} />
-          <Stat label={t.totalIncome} value={formatMoney(incomeTotal)} />
-          <Stat label={t.totalExpense} value={formatMoney(expenseTotal)} />
-        </div>
-        <div className="stack-list">
-          {financeEntries.length ? (
-            financeEntries.map((entry) => (
-              <div className="mini-row" key={entry.id}>
-                <strong>{entry.title}</strong>
-                <span>{formatDate(new Date(entry.date), language)}</span>
-                <b className={entry.kind === "income" ? "money-plus" : "money-minus"}>
-                  {entry.kind === "income" ? "+" : "-"}
-                  {formatMoney(entry.amount)}
-                </b>
-              </div>
-            ))
-          ) : (
-            <div className="empty">{t.emptyFinance}</div>
-          )}
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(firstVisible);
+      date.setDate(firstVisible.getDate() + index);
+      return date;
+    });
+  }, [visibleMonth]);
+
+  function changeMonth(offset: number) {
+    const next = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1);
+    setVisibleMonth(next);
+    setSelectedDate(toDateKey(next));
+  }
+
+  function dayTotals(date: Date) {
+    const dateKey = toDateKey(date);
+    const entries = financeEntries.filter((entry) => toDateKey(new Date(entry.date)) === dateKey);
+    return {
+      income: entries.filter((entry) => entry.kind === "income").reduce((sum, entry) => sum + entry.amount, 0),
+      expense: entries.filter((entry) => entry.kind === "expense").reduce((sum, entry) => sum + entry.amount, 0),
+    };
+  }
+
+  function selectFinanceDate(dateKey: string) {
+    setSelectedDate(dateKey);
+    setFinanceDraft({ ...financeDraft, date: dateKey });
+  }
+
+  return (
+    <section className="finance-workspace">
+      <div className="finance-left-column">
+        <form className="work-panel stack-form finance-form" onSubmit={addFinanceEntry}>
+          <div className="section-head tight">
+            <h2>{t.financeTitle}</h2>
+            {editingFinanceId ? (
+              <button className="ghost small" onClick={resetFinanceDraft} type="button">
+                {t.cancel}
+              </button>
+            ) : null}
+          </div>
+
+          <div className="finance-form-grid">
+            <label className="field">
+              <span>{t.title}</span>
+              <input
+                required
+                placeholder={t.financeNamePlaceholder}
+                value={financeDraft.title}
+                onChange={(event) => setFinanceDraft({ ...financeDraft, title: event.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span>{t.amount}</span>
+              <input
+                required
+                min="1"
+                type="number"
+                value={financeDraft.amount}
+                onChange={(event) => setFinanceDraft({ ...financeDraft, amount: event.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span>{t.entryDate}</span>
+              <input
+                required
+                type="date"
+                value={financeDraft.date}
+                onChange={(event) => setFinanceDraft({ ...financeDraft, date: event.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span>{t.financeCategory}</span>
+              <select
+                value={financeDraft.category}
+                onChange={(event) => setFinanceDraft({ ...financeDraft, category: event.target.value })}
+              >
+                {Object.entries(categoryLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="segmented">
+            <button
+              className={`segment ${financeDraft.kind === "expense" ? "active" : ""}`}
+              type="button"
+              onClick={() => setFinanceDraft({ ...financeDraft, kind: "expense" })}
+            >
+              {t.expense}
+            </button>
+            <button
+              className={`segment ${financeDraft.kind === "income" ? "active" : ""}`}
+              type="button"
+              onClick={() => setFinanceDraft({ ...financeDraft, kind: "income" })}
+            >
+              {t.income}
+            </button>
+          </div>
+          <label className="field">
+            <span>{t.memo}</span>
+            <input value={financeDraft.memo} onChange={(event) => setFinanceDraft({ ...financeDraft, memo: event.target.value })} />
+          </label>
+          <button className="primary" type="submit">
+            <Plus size={16} />
+            {editingFinanceId ? t.save : t.addEntry}
+          </button>
+        </form>
+
+        <div className="work-panel finance-detail-panel">
+          <div className="section-head">
+            <h2>{selectedDateEntries.length ? t.selectedDateDetails : t.monthDetails}</h2>
+          </div>
+          <div className="stack-list">
+            {visibleEntries.length ? (
+              visibleEntries.map((entry) => (
+                <article className="finance-entry-card" key={entry.id}>
+                  <div>
+                    <strong>{entry.title}</strong>
+                    <span>
+                      {formatDate(new Date(entry.date), language)} · {categoryLabels[entry.category] ?? entry.category}
+                    </span>
+                    {entry.memo ? <p>{entry.memo}</p> : null}
+                  </div>
+                  <b className={entry.kind === "income" ? "money-plus" : "money-minus"}>
+                    {entry.kind === "income" ? "+" : "-"}
+                    {formatMoney(entry.amount)}
+                  </b>
+                  <div className="finance-entry-actions">
+                    <button className="ghost small" onClick={() => editFinanceEntry(entry)} type="button">
+                      {t.edit}
+                    </button>
+                    <button className="ghost small danger-action" onClick={() => deleteFinanceEntry(entry.id)} type="button">
+                      {t.delete}
+                    </button>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="empty">{t.emptyFinance}</div>
+            )}
+          </div>
         </div>
       </div>
+
+      <div className="work-panel finance-calendar-panel">
+        <div className="calendar-month-head finance-month-head">
+          <button className="icon-btn" onClick={() => changeMonth(-1)} type="button" aria-label={t.previousMonth}>
+            {"‹"}
+          </button>
+          <h2>{monthTitle}</h2>
+          <button className="icon-btn" onClick={() => changeMonth(1)} type="button" aria-label={t.nextMonth}>
+            {"›"}
+          </button>
+        </div>
+
+        <div className="finance-summary">
+          <Stat label={t.totalIncome} value={formatMoney(monthIncome)} />
+          <Stat label={t.totalExpense} value={formatMoney(monthExpense)} />
+          <Stat label={t.balance} value={formatMoney(monthIncome - monthExpense)} />
+        </div>
+
+        <div className="calendar-weekdays" aria-hidden="true">
+          {["日", "月", "火", "水", "木", "金", "土"].map((day) => (
+            <span key={day}>{day}</span>
+          ))}
+        </div>
+        <div className="finance-calendar-grid">
+          {monthDays.map((date) => {
+            const dateKey = toDateKey(date);
+            const totals = dayTotals(date);
+            const inMonth = monthKey(date) === currentMonth;
+            const selected = dateKey === selectedDate;
+            return (
+              <button
+                className={`finance-day ${inMonth ? "" : "muted"} ${selected ? "selected" : ""}`}
+                key={dateKey}
+                onClick={() => selectFinanceDate(dateKey)}
+                type="button"
+              >
+                <span>{date.getDate()}</span>
+                <div>
+                  {totals.expense ? <b className="money-minus">-{Math.round(totals.expense).toLocaleString()}</b> : null}
+                  {totals.income ? <b className="money-plus">{Math.round(totals.income).toLocaleString()}</b> : null}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
     </section>
   );
 }
