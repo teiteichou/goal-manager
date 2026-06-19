@@ -653,7 +653,8 @@ h3 {
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: stretch;
   gap: 18px;
-  min-height: calc(100vh - 150px);
+  height: calc(100vh - 150px);
+  max-height: calc(100vh - 150px);
 }
 
 .paste-notes-workspace {
@@ -661,7 +662,8 @@ h3 {
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: stretch;
   gap: 18px;
-  min-height: calc(100vh - 150px);
+  height: calc(100vh - 150px);
+  max-height: calc(100vh - 150px);
 }
 
 .dashboard-grid {
@@ -923,12 +925,43 @@ h3 {
   background: #f4f7f9;
 }
 
+.paginated-viewer {
+  position: relative;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.study-rich-editor.paginated-viewer,
+.paste-page.paginated-viewer {
+  overflow: hidden;
+  overflow-y: hidden;
+}
+
+.paginated-content {
+  min-height: 100%;
+  transition: transform 160ms ease;
+  will-change: transform;
+}
+
+.paginated-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 .paste-page img {
   display: inline-block;
   max-width: none;
   height: auto;
   margin: 4px 8px 4px 0;
   vertical-align: top;
+}
+
+.paste-page.paginated-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .paste-pager {
@@ -1087,10 +1120,6 @@ h3 {
 
 .study-rich-editor.readonly {
   background: #f4f7f9;
-}
-
-.study-rich-editor.paged {
-  overflow: hidden;
 }
 
 .study-rich-editor blockquote,
@@ -1954,6 +1983,8 @@ h3 {
 
   .study-notes-workspace,
   .paste-notes-workspace {
+    height: auto;
+    max-height: none;
     min-height: 0;
   }
 

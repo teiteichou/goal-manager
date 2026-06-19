@@ -1049,11 +1049,6 @@ function splitPasteHtmlIntoPages(html: string, maxPageWeight = 1800) {
   return pages.length ? pages : [html];
 }
 
-function estimateHtmlPageWeight(containerHeight: number, fallback = 1500) {
-  if (!containerHeight) return fallback;
-  return Math.max(650, Math.floor(containerHeight * 2.15));
-}
-
 function buildInitialGoals(seed: Texts): Goal[] {
   return [
     {
@@ -1545,6 +1540,44 @@ export default function App() {
     setPasteEditing(true);
   }
 
+  function cancelStudyEdit() {
+    if (!editingStudyId) {
+      setStudyEditing(true);
+      setNoteDraft({ kind: "study", themeId: "tool", title: "", body: "", answers: {} });
+      return;
+    }
+
+    const note = notes.find((item) => item.id === editingStudyId);
+    if (!note) return;
+    setStudyEditing(false);
+    setNoteDraft({
+      kind: "study",
+      themeId: note.themeId ?? "tool",
+      title: note.title,
+      body: "",
+      answers: note.answers ?? {},
+    });
+  }
+
+  function cancelPasteEdit() {
+    if (!editingPasteId) {
+      setPasteEditing(true);
+      setNoteDraft({ kind: "paste", themeId: "tool", title: "", body: "", answers: {} });
+      return;
+    }
+
+    const note = notes.find((item) => item.id === editingPasteId);
+    if (!note) return;
+    setPasteEditing(false);
+    setNoteDraft({
+      kind: "paste",
+      themeId: "tool",
+      title: note.title,
+      body: note.body,
+      answers: {},
+    });
+  }
+
   function openIdeaNotes() {
     setCurrentView("notes");
     setNoteMode("idea");
@@ -1968,6 +2001,8 @@ export default function App() {
             addNote={addNote}
             beginPasteEdit={beginPasteEdit}
             beginStudyEdit={beginStudyEdit}
+            cancelPasteEdit={cancelPasteEdit}
+            cancelStudyEdit={cancelStudyEdit}
             deleteNote={deleteNote}
             editingIdeaId={editingIdeaId}
             editingPasteId={editingPasteId}
@@ -2648,6 +2683,8 @@ function NotesView({
   addNote,
   beginPasteEdit,
   beginStudyEdit,
+  cancelPasteEdit,
+  cancelStudyEdit,
   deleteNote,
   editingIdeaId,
   editingPasteId,
@@ -2674,6 +2711,8 @@ function NotesView({
   addNote: (event: FormEvent<HTMLFormElement>) => void;
   beginPasteEdit: () => void;
   beginStudyEdit: () => void;
+  cancelPasteEdit: () => void;
+  cancelStudyEdit: () => void;
   deleteNote: (id: string) => void;
   editingIdeaId: string | null;
   editingPasteId: string | null;
@@ -2714,31 +2753,33 @@ function NotesView({
   const isStudyReadOnly = Boolean(selectedStudyNote && !isStudyEditing);
   const isPasteReadOnly = Boolean(selectedPasteNote && !isPasteEditing);
   const pasteEditorRef = useRef<HTMLDivElement | null>(null);
+  const pasteViewerRef = useRef<HTMLDivElement | null>(null);
+  const pasteContentRef = useRef<HTMLDivElement | null>(null);
   const studyEditorRef = useRef<HTMLDivElement | null>(null);
-  const studyReadOnlyRef = useRef<HTMLDivElement | null>(null);
+  const studyViewerRef = useRef<HTMLDivElement | null>(null);
+  const studyContentRef = useRef<HTMLDivElement | null>(null);
   const [pastePage, setPastePage] = useState(1);
+  const [pasteTotalPages, setPasteTotalPages] = useState(1);
+  const [pastePageHeight, setPastePageHeight] = useState(1);
   const [activeStudyQuestion, setActiveStudyQuestion] = useState(0);
   const [studyPage, setStudyPage] = useState(1);
-  const [studyPageWeight, setStudyPageWeight] = useState(1500);
+  const [studyTotalPages, setStudyTotalPages] = useState(1);
+  const [studyPageHeight, setStudyPageHeight] = useState(1);
   const pasteBody = noteDraft.kind === "paste" ? noteDraft.body : "";
-  const pastePages = useMemo(
-    () => (isPasteReadOnly ? splitPasteHtmlIntoPages(pasteBody) : [pasteBody]),
-    [isPasteReadOnly, pasteBody],
-  );
-  const pasteTotalPages = Math.max(1, pastePages.length);
   const safePastePage = Math.min(pastePage, pasteTotalPages);
-  const visiblePasteHtml = pastePages[safePastePage - 1] ?? "";
   const activeQuestionIndex = Math.min(activeStudyQuestion, Math.max(0, selectedTemplate.items.length - 1));
   const activeQuestion = selectedTemplate.items[activeQuestionIndex] ?? "";
   const activeAnswerKey = `${selectedTemplate.id}-${activeQuestionIndex}`;
   const activeAnswer = studyDraft.answers?.[activeAnswerKey] ?? "";
-  const studyPages = useMemo(
-    () => (isStudyReadOnly ? splitPasteHtmlIntoPages(activeAnswer, studyPageWeight) : [activeAnswer]),
-    [activeAnswer, isStudyReadOnly, studyPageWeight],
-  );
-  const studyTotalPages = Math.max(1, studyPages.length);
   const safeStudyPage = Math.min(studyPage, studyTotalPages);
-  const visibleStudyHtml = studyPages[safeStudyPage - 1] ?? "";
+  const pastePageOffset = (safePastePage - 1) * pastePageHeight;
+  const studyPageOffset = (safeStudyPage - 1) * studyPageHeight;
+
+  function getVisibleContentHeight(element: HTMLDivElement) {
+    const styles = window.getComputedStyle(element);
+    const paddingY = Number.parseFloat(styles.paddingTop) + Number.parseFloat(styles.paddingBottom);
+    return Math.max(1, element.clientHeight - paddingY);
+  }
 
   useEffect(() => {
     if (noteMode === noteDraft.kind) return;
@@ -2781,6 +2822,34 @@ function NotesView({
   }, [editingPasteId, isPasteReadOnly, noteMode]);
 
   useEffect(() => {
+    if (!isPasteReadOnly || noteMode !== "paste") {
+      setPasteTotalPages(1);
+      setPastePageHeight(1);
+      return;
+    }
+
+    const viewer = pasteViewerRef.current;
+    const content = pasteContentRef.current;
+    if (!viewer || !content) return;
+
+    const updatePages = () => {
+      const pageHeight = getVisibleContentHeight(viewer);
+      const total = Math.max(1, Math.ceil(content.scrollHeight / pageHeight));
+      setPastePageHeight(pageHeight);
+      setPasteTotalPages(total);
+      setPastePage((page) => Math.min(page, total));
+    };
+
+    updatePages();
+
+    if (!("ResizeObserver" in window)) return;
+    const observer = new ResizeObserver(updatePages);
+    observer.observe(viewer);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [isPasteReadOnly, noteMode, pasteBody]);
+
+  useEffect(() => {
     if (pastePage > pasteTotalPages) setPastePage(pasteTotalPages);
   }, [pastePage, pasteTotalPages]);
 
@@ -2797,20 +2866,32 @@ function NotesView({
   }, [studyPage, studyTotalPages]);
 
   useEffect(() => {
-    const element = studyReadOnlyRef.current;
-    if (!element || !isStudyReadOnly) return;
+    if (!isStudyReadOnly || noteMode !== "study") {
+      setStudyTotalPages(1);
+      setStudyPageHeight(1);
+      return;
+    }
 
-    const updatePageWeight = () => {
-      setStudyPageWeight(estimateHtmlPageWeight(element.clientHeight));
+    const viewer = studyViewerRef.current;
+    const content = studyContentRef.current;
+    if (!viewer || !content) return;
+
+    const updatePages = () => {
+      const pageHeight = getVisibleContentHeight(viewer);
+      const total = Math.max(1, Math.ceil(content.scrollHeight / pageHeight));
+      setStudyPageHeight(pageHeight);
+      setStudyTotalPages(total);
+      setStudyPage((page) => Math.min(page, total));
     };
 
-    updatePageWeight();
+    updatePages();
 
     if (!("ResizeObserver" in window)) return;
-    const observer = new ResizeObserver(updatePageWeight);
-    observer.observe(element);
+    const observer = new ResizeObserver(updatePages);
+    observer.observe(viewer);
+    observer.observe(content);
     return () => observer.disconnect();
-  }, [isStudyReadOnly, activeAnswerKey]);
+  }, [activeAnswer, activeAnswerKey, isStudyReadOnly, noteMode]);
 
   useEffect(() => {
     if (activeStudyQuestion >= selectedTemplate.items.length) {
@@ -2920,9 +3001,14 @@ function NotesView({
                   {t.edit}
                 </button>
               ) : (
-                <button className="primary small" onClick={savePasteNote} type="button">
-                  {t.save}
-                </button>
+                <>
+                  <button className="primary small" onClick={savePasteNote} type="button">
+                    {t.save}
+                  </button>
+                  <button className="ghost small" onClick={cancelPasteEdit} type="button">
+                    {t.cancel}
+                  </button>
+                </>
               )}
               <button
                 className="ghost small danger-action"
@@ -2984,10 +3070,17 @@ function NotesView({
             <>
               <div
                 aria-label={t.pasteNotes}
-                className="paste-page readonly"
-                dangerouslySetInnerHTML={{ __html: visiblePasteHtml }}
+                className="paste-page readonly paginated-viewer"
+                ref={pasteViewerRef}
                 role="article"
-              />
+              >
+                <div
+                  className="paginated-content"
+                  dangerouslySetInnerHTML={{ __html: pasteBody }}
+                  ref={pasteContentRef}
+                  style={{ transform: `translateY(-${pastePageOffset}px)` }}
+                />
+              </div>
               <div className="pager paste-pager">
                 <button className="ghost small" disabled={safePastePage <= 1} onClick={() => setPastePage(safePastePage - 1)} type="button">
                   {t.previousPage}
@@ -3071,9 +3164,14 @@ function NotesView({
                   {t.edit}
                 </button>
               ) : (
-                <button className="primary small" onClick={saveStudyNote} type="button">
-                  {t.save}
-                </button>
+                <>
+                  <button className="primary small" onClick={saveStudyNote} type="button">
+                    {t.save}
+                  </button>
+                  <button className="ghost small" onClick={cancelStudyEdit} type="button">
+                    {t.cancel}
+                  </button>
+                </>
               )}
               <button
                 className="ghost small danger-action"
@@ -3144,16 +3242,31 @@ function NotesView({
                 ))}
               </div>
             </div>
-            <div
-              aria-label={activeQuestion}
-              className={`study-rich-editor ${isStudyReadOnly ? "readonly paged" : ""}`}
-              contentEditable={!isStudyReadOnly}
-              dangerouslySetInnerHTML={isStudyReadOnly ? { __html: visibleStudyHtml } : undefined}
-              onInput={updateStudyAnswer}
-              ref={isStudyReadOnly ? studyReadOnlyRef : studyEditorRef}
-              role="textbox"
-              suppressContentEditableWarning
-            />
+            {isStudyReadOnly ? (
+              <div
+                aria-label={activeQuestion}
+                className="study-rich-editor readonly paginated-viewer"
+                ref={studyViewerRef}
+                role="article"
+              >
+                <div
+                  className="paginated-content"
+                  dangerouslySetInnerHTML={{ __html: activeAnswer }}
+                  ref={studyContentRef}
+                  style={{ transform: `translateY(-${studyPageOffset}px)` }}
+                />
+              </div>
+            ) : (
+              <div
+                aria-label={activeQuestion}
+                className="study-rich-editor"
+                contentEditable
+                onInput={updateStudyAnswer}
+                ref={studyEditorRef}
+                role="textbox"
+                suppressContentEditableWarning
+              />
+            )}
             {isStudyReadOnly ? (
               <div className="pager paste-pager">
                 <button className="ghost small" disabled={safeStudyPage <= 1} onClick={() => setStudyPage(safeStudyPage - 1)} type="button">
