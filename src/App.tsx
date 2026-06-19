@@ -1756,8 +1756,9 @@ export default function App() {
 
   function cancelCodeEdit() {
     if (!editingCodeId) return;
-    const snippet = codeSnippets.find((item) => item.id === editingCodeId);
-    if (snippet) selectCodeSnippet(snippet);
+    setEditingCodeId(null);
+    setCodeDraft({ title: "", language: "javascript", code: "", notes: "" });
+    setCodeResult("");
   }
 
   function deleteCodeSnippet(id: string) {
