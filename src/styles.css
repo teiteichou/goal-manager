@@ -653,8 +653,7 @@ h3 {
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: stretch;
   gap: 18px;
-  height: min(690px, calc(100vh - 150px));
-  max-height: calc(100vh - 150px);
+  min-height: calc(100vh - 150px);
 }
 
 .paste-notes-workspace {
@@ -662,8 +661,7 @@ h3 {
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: stretch;
   gap: 18px;
-  height: min(690px, calc(100vh - 150px));
-  max-height: calc(100vh - 150px);
+  min-height: calc(100vh - 150px);
 }
 
 .dashboard-grid {
@@ -1956,8 +1954,7 @@ h3 {
 
   .study-notes-workspace,
   .paste-notes-workspace {
-    height: auto;
-    max-height: none;
+    min-height: 0;
   }
 
   .study-editor,
