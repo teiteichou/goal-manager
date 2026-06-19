@@ -5,21 +5,17 @@ import {
   Bold,
   CalendarDays,
   Check,
-  Code2,
   Copy,
   Edit3,
   Languages,
-  LayoutDashboard,
   Minus,
   Plus,
   Quote,
   RotateCcw,
   Sparkles,
   StickyNote,
-  Target,
   Timer,
   Trash2,
-  Wallet,
   X,
 } from "lucide-react";
 import {
@@ -43,12 +39,11 @@ import {
   saveLocalGoals,
   saveRemoteGoals,
   saveRemoteNotes,
-} from "./storage";
-import { isSupabaseConfigured } from "./supabaseClient";
-import type { CalendarEvent, CodeLanguage, CodeSnippet, ExtendReason, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalFormValues, GoalStatus, NoteItem, NoteKind, SoundType } from "./types";
-
-type Language = "ja" | "en" | "zh";
-type ViewKey = "dashboard" | "goals" | "calendar" | "notes" | "finance" | "code";
+} from "../storage";
+import { isSupabaseConfigured } from "../supabaseClient";
+import type { CalendarEvent, CodeLanguage, CodeSnippet, ExtendReason, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalFormValues, GoalStatus, NoteItem, NoteKind, SoundType } from "../types";
+import { navItems } from "./navigation";
+import type { Language, ViewKey } from "./types";
 
 type Texts = {
   languageName: string;
@@ -1877,14 +1872,6 @@ export default function App() {
     return `${t.remaining(remainingHours, selectedGoal.progress)} ${nextStep}`;
   }
 
-  const navItems: Array<{ key: ViewKey; icon: typeof LayoutDashboard }> = [
-    { key: "dashboard", icon: LayoutDashboard },
-    { key: "goals", icon: Target },
-    { key: "calendar", icon: CalendarDays },
-    { key: "notes", icon: StickyNote },
-    { key: "finance", icon: Wallet },
-    { key: "code", icon: Code2 },
-  ];
   const showStatsGrid = currentView !== "notes" && currentView !== "code";
 
   return (

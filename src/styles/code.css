@@ -1,0 +1,106 @@
+﻿
+.code-main {
+  display: grid;
+  gap: 16px;
+}
+
+.code-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+  gap: 14px;
+}
+
+.code-pane,
+.note-pane {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.code-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 12px;
+}
+
+.code-field textarea {
+  min-height: 360px;
+}
+
+.code-input {
+  font-family: "Cascadia Code", Consolas, "SFMono-Regular", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.helper-text {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.result-pane {
+  padding: 14px;
+  background: #111820;
+  border-radius: 8px;
+}
+
+.result-pane h3 {
+  color: #f8fbff;
+}
+
+.result-pane pre {
+  min-height: 96px;
+  margin: 0;
+  overflow: auto;
+  color: #d9f7ef;
+  font-family: "Cascadia Code", Consolas, "SFMono-Regular", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.code-library {
+  align-self: start;
+}
+
+.snippet-card {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  color: var(--ink);
+  background: #fbfcfe;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.snippet-card.active,
+.snippet-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.snippet-card-main {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  text-align: left;
+}
+
+.snippet-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.snippet-card span,
+.snippet-card small {
+  color: var(--muted);
+  font-size: 13px;
+}

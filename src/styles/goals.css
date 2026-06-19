@@ -1,0 +1,186 @@
+﻿
+.goal-board {
+  min-height: 520px;
+  padding: 18px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.section-head.tight {
+  margin-bottom: 10px;
+}
+
+.segmented {
+  display: flex;
+  padding: 4px;
+  background: #edf1f5;
+  border-radius: 8px;
+}
+
+.segment {
+  min-height: 32px;
+  padding: 0 12px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.segment.active {
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.goal-list {
+  display: grid;
+  gap: 12px;
+}
+
+.goal-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: #fbfcfe;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.goal-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.goal-top,
+.goal-actions,
+.goal-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.goal-top {
+  justify-content: space-between;
+}
+
+.goal-title {
+  min-width: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.goal-meta {
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pill.warn {
+  color: #825a08;
+  background: #fff0c9;
+}
+
+.pill.danger {
+  color: #8f2e3a;
+  background: #ffe1e5;
+}
+
+.progress-wrap {
+  display: grid;
+  gap: 6px;
+}
+
+.progress-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.progress {
+  height: 8px;
+  overflow: hidden;
+  background: #e8edf2;
+  border-radius: 999px;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.coach {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.coach-card,
+.calendar-box {
+  padding: 16px;
+}
+
+.coach-card {
+  min-height: 150px;
+  color: #34404c;
+  line-height: 1.65;
+}
+
+.coach-card strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.reminder-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.reminder-item {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  background: #f6f8fa;
+  border-left: 4px solid var(--gold);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.calendar-workspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.month-calendar,
+.schedule-panel {
+  padding: 18px;
+}
+
+.calendar-month-head {
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  text-align: center;
+}

@@ -1,0 +1,2 @@
+﻿/* Dashboard-specific rules are currently part of globals/layout from the first low-risk split.
+   Move dashboard selectors here when DashboardView is extracted from src/app/App.tsx. */

@@ -1,0 +1,69 @@
+﻿
+.schedule-card {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  background: #fbfcfd;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.schedule-card.active {
+  border-color: #f05a4f;
+  box-shadow: 0 0 0 3px #ffe1dc;
+}
+
+.schedule-time {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  color: #f05a4f;
+  font-weight: 800;
+}
+
+.schedule-time span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.schedule-card p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.compact-timeline {
+  grid-template-columns: 120px minmax(0, 1fr);
+}
+
+.empty {
+  padding: 52px 18px;
+  color: var(--muted);
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
+.compact-empty {
+  padding: 18px;
+  font-size: 13px;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+}

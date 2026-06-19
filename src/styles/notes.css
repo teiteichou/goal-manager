@@ -1,0 +1,363 @@
+﻿
+.idea-body-field textarea {
+  height: 100%;
+  min-height: 0;
+}
+
+.idea-board-panel {
+  min-height: 0;
+  overflow: auto;
+}
+
+.theme-select {
+  grid-column: 1 / -1;
+}
+
+.pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pager button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.sticky-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sticky-note {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 132px;
+  padding: 13px;
+  background: #fff7c9;
+  border: 1px solid #efd876;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(126, 104, 28, 0.1);
+}
+
+.delete-note {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  color: #8f2e3a;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(143, 46, 58, 0.2);
+  border-radius: 999px;
+}
+
+.sticky-note:nth-child(3n + 2) {
+  background: #e9f6ff;
+  border-color: #bfe3f7;
+}
+
+.sticky-note:nth-child(3n) {
+  background: #f3ebff;
+  border-color: #d9c4f6;
+}
+
+.sticky-note.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 10px 24px rgba(126, 104, 28, 0.1);
+}
+
+.sticky-note strong,
+.sticky-note p {
+  overflow-wrap: anywhere;
+}
+
+.sticky-note p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #3a3f46;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.study-panel {
+  grid-column: 2;
+}
+
+.template-card {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 14px;
+  background: #fbfcfe;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.template-card ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.template-card li {
+  line-height: 1.5;
+}
+
+.study-note-list {
+  display: grid;
+  gap: 10px;
+}
+
+.note-card small {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.study-editor {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  align-content: stretch;
+  gap: 16px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.paste-editor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.paste-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 24px;
+  overflow: auto;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  line-height: 1.7;
+  outline: none;
+  white-space: normal;
+}
+
+.paste-page:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.paste-page.readonly {
+  background: #f4f7f9;
+}
+
+.paginated-viewer {
+  position: relative;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.study-rich-editor.paginated-viewer,
+.paste-page.paginated-viewer {
+  overflow: hidden;
+  overflow-y: hidden;
+}
+
+.paginated-content {
+  min-height: 100%;
+  transition: transform 160ms ease;
+  will-change: transform;
+}
+
+.paginated-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.paste-page img {
+  display: inline-block;
+  max-width: none;
+  height: auto;
+  margin: 4px 8px 4px 0;
+  vertical-align: top;
+}
+
+.paste-page.paginated-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.paste-pager {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.paste-toolbar {
+  justify-content: flex-start;
+}
+
+.toolbar-color-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 4px;
+  border-left: 1px solid var(--line);
+}
+
+.study-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.danger-action {
+  color: #8f2e3a;
+}
+
+.danger-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.template-answer-list {
+  display: grid;
+  gap: 14px;
+}
+
+.study-answer-tabs {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.study-answer-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 240px;
+  min-height: 38px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  color: var(--muted);
+  background: #f7fafb;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.study-answer-tabs button span {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  color: #fff;
+  background: #9aa8b5;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.study-answer-tabs button.active {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.study-answer-tabs button.active span,
+.study-answer-tabs button.filled span {
+  background: var(--accent);
+}
+
+.study-answer-editor {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 0;
+}
+
+.study-notes-workspace > .stack-list,
+.paste-notes-workspace > .stack-list {
+  min-height: 0;
+  overflow: auto;
+}
+
+.study-answer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.study-answer-head h3 {
+  line-height: 1.45;
+}
+
+.rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.rich-toolbar .icon-btn {
+  width: 34px;
+  min-height: 34px;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.color-swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.background-swatch {
+  box-shadow: inset 0 0 0 1px rgba(25, 32, 40, 0.08), 0 0 0 1px var(--line);
+}
+
+.study-rich-editor {
+  min-height: 0;
+  padding: 16px;
+  overflow-y: auto;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  line-height: 1.75;
+  outline: none;
+  white-space: normal;
+}
+
+.study-rich-editor:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.study-rich-editor.readonly {
+  background: #f4f7f9;
+}
