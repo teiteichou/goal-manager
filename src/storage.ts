@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from "./supabaseClient";
-import type { FinanceEntry, FinanceKind, Goal, GoalCategory, GoalStatus, NoteItem } from "./types";
+import type { CodeLanguage, CodeSnippet, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalStatus, NoteItem } from "./types";
 
 const storeKey = "rinaspace-goals-v1";
 const focusStoreKey = "rinaspace-focus-minutes";
@@ -72,6 +72,17 @@ type PasteNoteRow = {
   body_html: string;
   created_at: string;
   updated_at?: string;
+};
+
+type CodeSnippetRow = {
+  id: string;
+  title: string;
+  language: CodeLanguage;
+  code: string;
+  notes: string;
+  result: string;
+  created_at?: string;
+  updated_at: string;
 };
 
 function goalToRow(goal: Goal): GoalRow {
@@ -177,6 +188,34 @@ function noteUpdatedAt() {
 function noteCreatedAt(note: NoteItem) {
   const createdAt = new Date(note.createdAt || Date.now());
   return Number.isNaN(createdAt.getTime()) ? new Date().toISOString() : createdAt.toISOString();
+}
+
+function codeSnippetToRow(snippet: CodeSnippet): CodeSnippetRow {
+  const now = new Date().toISOString();
+  const createdAt = snippet.createdAt ? new Date(snippet.createdAt) : null;
+  return {
+    id: snippet.id,
+    title: snippet.title,
+    language: snippet.language,
+    code: snippet.code,
+    notes: snippet.notes,
+    result: snippet.result,
+    created_at: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toISOString() : now,
+    updated_at: now,
+  };
+}
+
+function rowToCodeSnippet(row: CodeSnippetRow): CodeSnippet {
+  return {
+    id: row.id,
+    title: row.title,
+    language: row.language,
+    code: row.code ?? "",
+    notes: row.notes ?? "",
+    result: row.result ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 export function loadLocalGoals(fallback: Goal[]): Goal[] {
@@ -379,6 +418,48 @@ export async function deleteRemoteNote(note: NoteItem) {
 
   if (error) {
     console.warn("Supabase note delete failed. Data remains saved locally.", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function loadRemoteCodeSnippets(): Promise<CodeSnippet[] | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+
+  const { data, error } = await supabase
+    .from("code_snippets")
+    .select("id,title,language,code,notes,result,created_at,updated_at")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.warn("Supabase code snippets load failed. Falling back to localStorage.", error.message);
+    return null;
+  }
+
+  return (data as CodeSnippetRow[]).map(rowToCodeSnippet);
+}
+
+export async function saveRemoteCodeSnippets(snippets: CodeSnippet[]) {
+  if (!isSupabaseConfigured || !supabase) return false;
+  if (!snippets.length) return true;
+
+  const rows = snippets.map(codeSnippetToRow);
+  const { error } = await supabase.from("code_snippets").upsert(rows, { onConflict: "id" });
+  if (error) {
+    console.warn("Supabase code snippets save failed. Data remains saved locally.", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteRemoteCodeSnippet(id: string) {
+  if (!isSupabaseConfigured || !supabase) return false;
+
+  const { error } = await supabase.from("code_snippets").delete().eq("id", id);
+  if (error) {
+    console.warn("Supabase code snippet delete failed. Data remains saved locally.", error.message);
     return false;
   }
 

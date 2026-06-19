@@ -1450,7 +1450,7 @@ h3 {
 
 .snippet-card {
   display: grid;
-  gap: 4px;
+  gap: 10px;
   width: 100%;
   padding: 12px;
   color: var(--ink);
@@ -1458,6 +1458,29 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   text-align: left;
+}
+
+.snippet-card.active,
+.snippet-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.snippet-card-main {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  text-align: left;
+}
+
+.snippet-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .snippet-card span,

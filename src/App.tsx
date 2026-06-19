@@ -23,14 +23,17 @@ import {
   X,
 } from "lucide-react";
 import {
+  deleteRemoteCodeSnippet,
   deleteRemoteNote,
   deleteRemoteGoal,
   deleteRemoteFinanceEntry,
   loadFocusStats,
   loadLocalGoals,
+  loadRemoteCodeSnippets,
   loadRemoteFinanceEntries,
   loadRemoteGoals,
   loadRemoteNotes,
+  saveRemoteCodeSnippets,
   saveRemoteFinanceEntries,
   saveFocusStats,
   saveLocalGoals,
@@ -38,11 +41,10 @@ import {
   saveRemoteNotes,
 } from "./storage";
 import { isSupabaseConfigured } from "./supabaseClient";
-import type { ExtendReason, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalFormValues, GoalStatus, NoteItem, NoteKind, SoundType } from "./types";
+import type { CodeLanguage, CodeSnippet, ExtendReason, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalFormValues, GoalStatus, NoteItem, NoteKind, SoundType } from "./types";
 
 type Language = "ja" | "en" | "zh";
 type ViewKey = "dashboard" | "goals" | "calendar" | "notes" | "finance" | "code";
-type CodeLanguage = "java" | "oracle" | "react" | "javascript";
 
 type CalendarEvent = {
   id: string;
@@ -52,16 +54,6 @@ type CalendarEvent = {
   endTime: string;
   memo: string;
   createdAt: string;
-};
-
-type CodeSnippet = {
-  id: string;
-  title: string;
-  language: CodeLanguage;
-  code: string;
-  notes: string;
-  result: string;
-  updatedAt: string;
 };
 
 type Texts = {
@@ -1146,6 +1138,7 @@ export default function App() {
     notes: "",
   });
   const [codeResult, setCodeResult] = useState("");
+  const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
   const audioRef = useRef<{ context: AudioContext; oscillators: OscillatorNode[] } | null>(null);
   const creditedFocusMinutesRef = useRef(0);
 
@@ -1198,6 +1191,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let alive = true;
+
+    loadRemoteCodeSnippets().then((remoteSnippets) => {
+      if (!alive || !remoteSnippets?.length) return;
+      setCodeSnippets(remoteSnippets);
+      localStorage.setItem(codeStoreKey, JSON.stringify(remoteSnippets));
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const now = Date.now();
     let changed = false;
     const nextGoals = goals.map((goal) => {
@@ -1239,6 +1246,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem(codeStoreKey, JSON.stringify(codeSnippets));
+    saveRemoteCodeSnippets(codeSnippets);
   }, [codeSnippets]);
 
   useEffect(() => {
@@ -1716,16 +1724,50 @@ export default function App() {
   function saveCodeSnippet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!codeDraft.title.trim() && !codeDraft.code.trim()) return;
+    const existing = codeSnippets.find((snippet) => snippet.id === editingCodeId);
     const next: CodeSnippet = {
-      id: crypto.randomUUID(),
+      id: editingCodeId ?? crypto.randomUUID(),
       title: codeDraft.title.trim() || codeLanguageLabels[codeDraft.language],
       language: codeDraft.language,
       code: codeDraft.code,
       notes: codeDraft.notes,
       result: codeResult,
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    setCodeSnippets((current) => [next, ...current]);
+    setCodeSnippets((current) =>
+      existing ? current.map((snippet) => (snippet.id === existing.id ? next : snippet)) : [next, ...current],
+    );
+    setEditingCodeId(null);
+    setCodeDraft({ title: "", language: "javascript", code: "", notes: "" });
+    setCodeResult("");
+  }
+
+  function selectCodeSnippet(snippet: CodeSnippet) {
+    setEditingCodeId(snippet.id);
+    setCodeDraft({
+      title: snippet.title,
+      language: snippet.language,
+      code: snippet.code,
+      notes: snippet.notes,
+    });
+    setCodeResult(snippet.result);
+  }
+
+  function cancelCodeEdit() {
+    if (!editingCodeId) return;
+    const snippet = codeSnippets.find((item) => item.id === editingCodeId);
+    if (snippet) selectCodeSnippet(snippet);
+  }
+
+  function deleteCodeSnippet(id: string) {
+    setCodeSnippets((current) => current.filter((snippet) => snippet.id !== id));
+    deleteRemoteCodeSnippet(id);
+    if (editingCodeId === id) {
+      setEditingCodeId(null);
+      setCodeDraft({ title: "", language: "javascript", code: defaultCode, notes: "" });
+      setCodeResult("");
+    }
   }
 
   function adjustTimer(minutes: number) {
@@ -2050,9 +2092,13 @@ export default function App() {
             codeDraft={codeDraft}
             codeResult={codeResult}
             codeSnippets={codeSnippets}
+            editingCodeId={editingCodeId}
             language={language}
+            cancelCodeEdit={cancelCodeEdit}
+            deleteCodeSnippet={deleteCodeSnippet}
             runCode={runCode}
             saveCodeSnippet={saveCodeSnippet}
+            selectCodeSnippet={selectCodeSnippet}
             setCodeDraft={setCodeDraft}
             t={t}
           />
@@ -3623,21 +3669,29 @@ function FinanceView({
 }
 
 function CodeView({
+  cancelCodeEdit,
   codeDraft,
   codeResult,
   codeSnippets,
+  deleteCodeSnippet,
+  editingCodeId,
   language,
   runCode,
   saveCodeSnippet,
+  selectCodeSnippet,
   setCodeDraft,
   t,
 }: {
+  cancelCodeEdit: () => void;
   codeDraft: { title: string; language: CodeLanguage; code: string; notes: string };
   codeResult: string;
   codeSnippets: CodeSnippet[];
+  deleteCodeSnippet: (id: string) => void;
+  editingCodeId: string | null;
   language: Language;
   runCode: () => void;
   saveCodeSnippet: (event: FormEvent<HTMLFormElement>) => void;
+  selectCodeSnippet: (snippet: CodeSnippet) => void;
   setCodeDraft: (draft: { title: string; language: CodeLanguage; code: string; notes: string }) => void;
   t: Texts;
 }) {
@@ -3655,6 +3709,11 @@ function CodeView({
               <Plus size={15} />
               {t.saveSnippet}
             </button>
+            {editingCodeId ? (
+              <button className="ghost small" type="button" onClick={cancelCodeEdit}>
+                {t.cancel}
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -3721,22 +3780,21 @@ function CodeView({
         <div className="stack-list">
           {codeSnippets.length ? (
             codeSnippets.map((snippet) => (
-              <button
-                className="snippet-card"
-                key={snippet.id}
-                onClick={() =>
-                  setCodeDraft({
-                    title: snippet.title,
-                    language: snippet.language,
-                    code: snippet.code,
-                    notes: snippet.notes,
-                  })
-                }
-              >
-                <strong>{snippet.title}</strong>
-                <span>{codeLanguageLabels[snippet.language]}</span>
-                <small>{formatDate(new Date(snippet.updatedAt), language)}</small>
-              </button>
+              <article className={`snippet-card ${editingCodeId === snippet.id ? "active" : ""}`} key={snippet.id}>
+                <button className="snippet-card-main" onClick={() => selectCodeSnippet(snippet)} type="button">
+                  <strong>{snippet.title}</strong>
+                  <span>{codeLanguageLabels[snippet.language]}</span>
+                  <small>{formatDate(new Date(snippet.updatedAt), language)}</small>
+                </button>
+                <div className="snippet-card-actions">
+                  <button className="ghost small" onClick={() => selectCodeSnippet(snippet)} type="button">
+                    {t.edit}
+                  </button>
+                  <button className="ghost small danger-action" onClick={() => deleteCodeSnippet(snippet.id)} type="button">
+                    {t.delete}
+                  </button>
+                </div>
+              </article>
             ))
           ) : (
             <div className="empty compact-empty">{t.emptyCode}</div>
