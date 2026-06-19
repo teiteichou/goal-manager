@@ -1049,6 +1049,11 @@ function splitPasteHtmlIntoPages(html: string, maxPageWeight = 1800) {
   return pages.length ? pages : [html];
 }
 
+function estimateHtmlPageWeight(containerHeight: number, fallback = 1500) {
+  if (!containerHeight) return fallback;
+  return Math.max(650, Math.floor(containerHeight * 2.15));
+}
+
 function buildInitialGoals(seed: Texts): Goal[] {
   return [
     {
@@ -1925,7 +1930,6 @@ export default function App() {
         {currentView === "dashboard" ? (
           <DashboardView
             notes={notes}
-            openGoalDialog={openGoalDialog}
             setCurrentView={setCurrentView}
             t={t}
             upcomingGoals={upcomingGoals}
@@ -2171,14 +2175,12 @@ function Stat({
 
 function DashboardView({
   notes,
-  openGoalDialog,
   setCurrentView,
   t,
   upcomingGoals,
   language,
 }: {
   notes: NoteItem[];
-  openGoalDialog: () => void;
   setCurrentView: (view: ViewKey) => void;
   t: Texts;
   upcomingGoals: Goal[];
@@ -2189,10 +2191,6 @@ function DashboardView({
       <div className="work-panel wide-panel">
         <div className="section-head">
           <h2>{t.dashboardTitle}</h2>
-          <button className="primary small" onClick={openGoalDialog}>
-            <Plus size={15} />
-            {t.createGoal}
-          </button>
         </div>
         <div className="summary-list">
           <button onClick={() => setCurrentView("calendar")}>
@@ -2717,8 +2715,11 @@ function NotesView({
   const isPasteReadOnly = Boolean(selectedPasteNote && !isPasteEditing);
   const pasteEditorRef = useRef<HTMLDivElement | null>(null);
   const studyEditorRef = useRef<HTMLDivElement | null>(null);
+  const studyReadOnlyRef = useRef<HTMLDivElement | null>(null);
   const [pastePage, setPastePage] = useState(1);
   const [activeStudyQuestion, setActiveStudyQuestion] = useState(0);
+  const [studyPage, setStudyPage] = useState(1);
+  const [studyPageWeight, setStudyPageWeight] = useState(1500);
   const pasteBody = noteDraft.kind === "paste" ? noteDraft.body : "";
   const pastePages = useMemo(
     () => (isPasteReadOnly ? splitPasteHtmlIntoPages(pasteBody) : [pasteBody]),
@@ -2731,6 +2732,13 @@ function NotesView({
   const activeQuestion = selectedTemplate.items[activeQuestionIndex] ?? "";
   const activeAnswerKey = `${selectedTemplate.id}-${activeQuestionIndex}`;
   const activeAnswer = studyDraft.answers?.[activeAnswerKey] ?? "";
+  const studyPages = useMemo(
+    () => (isStudyReadOnly ? splitPasteHtmlIntoPages(activeAnswer, studyPageWeight) : [activeAnswer]),
+    [activeAnswer, isStudyReadOnly, studyPageWeight],
+  );
+  const studyTotalPages = Math.max(1, studyPages.length);
+  const safeStudyPage = Math.min(studyPage, studyTotalPages);
+  const visibleStudyHtml = studyPages[safeStudyPage - 1] ?? "";
 
   useEffect(() => {
     if (noteMode === noteDraft.kind) return;
@@ -2781,6 +2789,30 @@ function NotesView({
   }, [selectedTemplate.id]);
 
   useEffect(() => {
+    setStudyPage(1);
+  }, [activeAnswerKey, editingStudyId, isStudyReadOnly, noteMode]);
+
+  useEffect(() => {
+    if (studyPage > studyTotalPages) setStudyPage(studyTotalPages);
+  }, [studyPage, studyTotalPages]);
+
+  useEffect(() => {
+    const element = studyReadOnlyRef.current;
+    if (!element || !isStudyReadOnly) return;
+
+    const updatePageWeight = () => {
+      setStudyPageWeight(estimateHtmlPageWeight(element.clientHeight));
+    };
+
+    updatePageWeight();
+
+    if (!("ResizeObserver" in window)) return;
+    const observer = new ResizeObserver(updatePageWeight);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [isStudyReadOnly, activeAnswerKey]);
+
+  useEffect(() => {
     if (activeStudyQuestion >= selectedTemplate.items.length) {
       setActiveStudyQuestion(Math.max(0, selectedTemplate.items.length - 1));
     }
@@ -2792,7 +2824,7 @@ function NotesView({
     if (editor.innerHTML !== activeAnswer) {
       editor.innerHTML = activeAnswer;
     }
-  }, [activeAnswer, activeAnswerKey, noteMode]);
+  }, [activeAnswer, activeAnswerKey, isStudyReadOnly, noteMode]);
 
   function updatePasteBody() {
     if (noteMode !== "paste") return;
@@ -2866,6 +2898,16 @@ function NotesView({
     updateStudyAnswer();
   }
 
+  function applyPasteFormat(command: "bold" | "formatBlock" | "foreColor" | "hiliteColor", value?: string) {
+    if (isPasteReadOnly) return;
+    pasteEditorRef.current?.focus();
+    const applied = document.execCommand(command, false, value);
+    if (!applied && command === "hiliteColor") {
+      document.execCommand("backColor", false, value);
+    }
+    updatePasteBody();
+  }
+
   if (noteMode === "paste") {
     return (
       <section className="paste-notes-workspace">
@@ -2902,6 +2944,41 @@ function NotesView({
               onChange={(event) => setNoteDraft({ ...noteDraft, kind: "paste", title: event.target.value })}
             />
           </label>
+
+          {!isPasteReadOnly ? (
+            <div className="rich-toolbar paste-toolbar" aria-label="Paste note formatting">
+              <button className="icon-btn" onClick={() => applyPasteFormat("bold")} title="Bold" type="button">
+                <Bold size={16} />
+              </button>
+              <button className="icon-btn" onClick={() => applyPasteFormat("formatBlock", "blockquote")} title="Quote" type="button">
+                <Quote size={16} />
+              </button>
+              <div className="toolbar-color-group" aria-label="Text color">
+                {["#192028", "#d84a3f", "#1f74d1", "#16736b", "#8b5cf6"].map((color) => (
+                  <button
+                    aria-label={`Text color ${color}`}
+                    className="color-swatch"
+                    key={color}
+                    onClick={() => applyPasteFormat("foreColor", color)}
+                    style={{ background: color }}
+                    type="button"
+                  />
+                ))}
+              </div>
+              <div className="toolbar-color-group" aria-label="Background color">
+                {["#fff7c9", "#dff1ee", "#e9f6ff", "#f3ebff", "#ffe4e6"].map((color) => (
+                  <button
+                    aria-label={`Background color ${color}`}
+                    className="color-swatch background-swatch"
+                    key={color}
+                    onClick={() => applyPasteFormat("hiliteColor", color)}
+                    style={{ background: color }}
+                    type="button"
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {isPasteReadOnly ? (
             <>
@@ -3069,13 +3146,25 @@ function NotesView({
             </div>
             <div
               aria-label={activeQuestion}
-              className={`study-rich-editor ${isStudyReadOnly ? "readonly" : ""}`}
+              className={`study-rich-editor ${isStudyReadOnly ? "readonly paged" : ""}`}
               contentEditable={!isStudyReadOnly}
+              dangerouslySetInnerHTML={isStudyReadOnly ? { __html: visibleStudyHtml } : undefined}
               onInput={updateStudyAnswer}
-              ref={studyEditorRef}
+              ref={isStudyReadOnly ? studyReadOnlyRef : studyEditorRef}
               role="textbox"
               suppressContentEditableWarning
             />
+            {isStudyReadOnly ? (
+              <div className="pager paste-pager">
+                <button className="ghost small" disabled={safeStudyPage <= 1} onClick={() => setStudyPage(safeStudyPage - 1)} type="button">
+                  {t.previousPage}
+                </button>
+                <span>{t.stickyPage(safeStudyPage, studyTotalPages)}</span>
+                <button className="ghost small" disabled={safeStudyPage >= studyTotalPages} onClick={() => setStudyPage(safeStudyPage + 1)} type="button">
+                  {t.nextPage}
+                </button>
+              </div>
+            ) : null}
           </section>
         </div>
 
