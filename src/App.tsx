@@ -23,16 +23,20 @@ import {
   X,
 } from "lucide-react";
 import {
+  clearLocalGoals,
   deleteRemoteCodeSnippet,
+  deleteRemoteCalendarEvent,
   deleteRemoteNote,
   deleteRemoteGoal,
   deleteRemoteFinanceEntry,
   loadFocusStats,
   loadLocalGoals,
+  loadRemoteCalendarEvents,
   loadRemoteCodeSnippets,
   loadRemoteFinanceEntries,
   loadRemoteGoals,
   loadRemoteNotes,
+  saveRemoteCalendarEvents,
   saveRemoteCodeSnippets,
   saveRemoteFinanceEntries,
   saveFocusStats,
@@ -41,20 +45,10 @@ import {
   saveRemoteNotes,
 } from "./storage";
 import { isSupabaseConfigured } from "./supabaseClient";
-import type { CodeLanguage, CodeSnippet, ExtendReason, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalFormValues, GoalStatus, NoteItem, NoteKind, SoundType } from "./types";
+import type { CalendarEvent, CodeLanguage, CodeSnippet, ExtendReason, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalFormValues, GoalStatus, NoteItem, NoteKind, SoundType } from "./types";
 
 type Language = "ja" | "en" | "zh";
 type ViewKey = "dashboard" | "goals" | "calendar" | "notes" | "finance" | "code";
-
-type CalendarEvent = {
-  id: string;
-  date: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  memo: string;
-  createdAt: string;
-};
 
 type Texts = {
   languageName: string;
@@ -237,7 +231,7 @@ const translations: Record<Language, Texts> = {
     reset: "リセット",
     backgroundSound: "背景音",
     pageEyebrow: "RinaSpace",
-    headline: "今日の小さな歩みを、静かに未来へつないでいく。",
+    headline: "完璧を目指すより、一歩ずつ前へ。",
     syncWaiting: "Supabase 接続待機中",
     syncLocal: "ローカル保存",
     syncDone: "Supabase 同期済み",
@@ -406,7 +400,7 @@ const translations: Record<Language, Texts> = {
     reset: "Reset",
     backgroundSound: "Background sound",
     pageEyebrow: "RinaSpace",
-    headline: "Gather each small step today, and let it quietly become tomorrow.",
+    headline: "Progress over perfection",
     syncWaiting: "Supabase pending",
     syncLocal: "Local storage",
     syncDone: "Supabase synced",
@@ -575,7 +569,7 @@ const translations: Record<Language, Texts> = {
     reset: "重置",
     backgroundSound: "背景音",
     pageEyebrow: "RinaSpace",
-    headline: "把今天的每一步，温柔地收藏成明天的光。",
+    headline: "进步胜过完美",
     syncWaiting: "Supabase 等待连接",
     syncLocal: "本地保存",
     syncDone: "Supabase 已同步",
@@ -1087,7 +1081,9 @@ export default function App() {
   const t = translations[language];
   const [currentView, setCurrentView] = useState<ViewKey>("dashboard");
   const [noteMode, setNoteMode] = useState<NoteKind>("idea");
-  const [goals, setGoals] = useState<Goal[]>(() => loadLocalGoals(buildInitialGoals(translations.ja)));
+  const [goals, setGoals] = useState<Goal[]>(() =>
+    isSupabaseConfigured ? [] : loadLocalGoals(buildInitialGoals(translations.ja)),
+  );
   const [notes, setNotes] = useState<NoteItem[]>(() => readJson(notesStoreKey, []));
   const [financeEntries, setFinanceEntries] = useState<FinanceEntry[]>(() => readJson(financeStoreKey, []));
   const [codeSnippets, setCodeSnippets] = useState<CodeSnippet[]>(() => readJson(codeStoreKey, []));
@@ -1151,10 +1147,28 @@ export default function App() {
     let alive = true;
 
     loadRemoteGoals().then((remoteGoals) => {
-      if (!alive || !remoteGoals?.length) return;
+      if (!alive || remoteGoals === null) return;
       setGoals(remoteGoals);
-      saveLocalGoals(remoteGoals);
+      clearLocalGoals();
       setSyncStatus("synced");
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isSupabaseConfigured) clearLocalGoals();
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    loadRemoteFinanceEntries().then((remoteEntries) => {
+      if (!alive || !remoteEntries?.length) return;
+      setFinanceEntries(remoteEntries);
+      localStorage.setItem(financeStoreKey, JSON.stringify(remoteEntries));
     });
 
     return () => {
@@ -1165,10 +1179,10 @@ export default function App() {
   useEffect(() => {
     let alive = true;
 
-    loadRemoteFinanceEntries().then((remoteEntries) => {
-      if (!alive || !remoteEntries?.length) return;
-      setFinanceEntries(remoteEntries);
-      localStorage.setItem(financeStoreKey, JSON.stringify(remoteEntries));
+    loadRemoteCalendarEvents().then((remoteEvents) => {
+      if (!alive || !remoteEvents?.length) return;
+      setCalendarEvents(remoteEvents);
+      localStorage.setItem(calendarStoreKey, JSON.stringify(remoteEvents));
     });
 
     return () => {
@@ -1221,7 +1235,11 @@ export default function App() {
       return;
     }
 
-    saveLocalGoals(goals);
+    if (isSupabaseConfigured) {
+      clearLocalGoals();
+    } else {
+      saveLocalGoals(goals);
+    }
 
     if (!isSupabaseConfigured) {
       setSyncStatus("local");
@@ -1251,6 +1269,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem(calendarStoreKey, JSON.stringify(calendarEvents));
+    saveRemoteCalendarEvents(calendarEvents);
   }, [calendarEvents]);
 
   useEffect(() => {
@@ -2567,6 +2586,7 @@ function CalendarView({
 
   function deleteCalendarEvent(id: string) {
     setCalendarEvents((current) => current.filter((event) => event.id !== id));
+    deleteRemoteCalendarEvent(id);
     if (editingEventId === id) resetEventDraft();
   }
 
@@ -3865,9 +3885,17 @@ function GoalCard({
             </>
           ) : null}
           {goal.status === "done" || goal.status === "missed" ? (
-            <button className="ghost small" onClick={() => openReview(goal)}>
-              {t.review}
-            </button>
+            <>
+              {goal.status === "missed" ? (
+                <button className="primary small" onClick={() => markDone(goal)}>
+                  <Check size={15} />
+                  {t.done}
+                </button>
+              ) : null}
+              <button className="ghost small" onClick={() => openReview(goal)}>
+                {t.review}
+              </button>
+            </>
           ) : null}
           <button className="ghost small" onClick={() => copyGoal(goal)}>
             <Copy size={15} />

@@ -61,3 +61,14 @@ export type CodeSnippet = {
   createdAt?: string;
   updatedAt: string;
 };
+
+export type CalendarEvent = {
+  id: string;
+  date: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  memo: string;
+  createdAt: string;
+  updatedAt?: string;
+};

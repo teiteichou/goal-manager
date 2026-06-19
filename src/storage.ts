@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from "./supabaseClient";
-import type { CodeLanguage, CodeSnippet, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalStatus, NoteItem } from "./types";
+import type { CalendarEvent, CodeLanguage, CodeSnippet, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalStatus, NoteItem } from "./types";
 
 const storeKey = "rinaspace-goals-v1";
 const focusStoreKey = "rinaspace-focus-minutes";
@@ -46,6 +46,17 @@ type FinanceEntryRow = {
   memo: string;
   entry_date: string;
   created_at?: string;
+  updated_at?: string;
+};
+
+type CalendarEventRow = {
+  id: string;
+  event_date: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  memo: string;
+  created_at: string;
   updated_at?: string;
 };
 
@@ -149,6 +160,32 @@ function rowToFinanceEntry(row: FinanceEntryRow): FinanceEntry {
   };
 }
 
+function calendarEventToRow(event: CalendarEvent): CalendarEventRow {
+  return {
+    id: event.id,
+    event_date: event.date,
+    title: event.title,
+    start_time: event.startTime,
+    end_time: event.endTime,
+    memo: event.memo,
+    created_at: new Date(event.createdAt).toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function rowToCalendarEvent(row: CalendarEventRow): CalendarEvent {
+  return {
+    id: row.id,
+    date: row.event_date,
+    title: row.title,
+    startTime: row.start_time?.slice(0, 5) ?? "09:00",
+    endTime: row.end_time?.slice(0, 5) ?? "10:00",
+    memo: row.memo ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function rowToIdeaNote(row: IdeaNoteRow): NoteItem {
   return {
     id: row.id,
@@ -234,6 +271,10 @@ export function saveLocalGoals(goals: Goal[]) {
   localStorage.setItem(storeKey, JSON.stringify(goals));
 }
 
+export function clearLocalGoals() {
+  localStorage.removeItem(storeKey);
+}
+
 export function loadFocusStats(todayKey: string) {
   const stored = localStorage.getItem(focusDailyStoreKey);
   if (stored) {
@@ -272,6 +313,7 @@ export async function loadRemoteGoals(): Promise<Goal[] | null> {
 
 export async function saveRemoteGoals(goals: Goal[]) {
   if (!isSupabaseConfigured || !supabase) return false;
+  if (!goals.length) return true;
 
   const rows = normalizeGoalIds(goals).goals.map(goalToRow);
 
@@ -332,6 +374,49 @@ export async function deleteRemoteFinanceEntry(id: string) {
   const { error } = await supabase.from("finance_entries").delete().eq("id", id);
   if (error) {
     console.warn("Supabase finance delete failed. Data remains saved locally.", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function loadRemoteCalendarEvents(): Promise<CalendarEvent[] | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+
+  const { data, error } = await supabase
+    .from("calendar_events")
+    .select("id,event_date,title,start_time,end_time,memo,created_at,updated_at")
+    .order("event_date", { ascending: true })
+    .order("start_time", { ascending: true });
+
+  if (error) {
+    console.warn("Supabase calendar events load failed. Falling back to localStorage.", error.message);
+    return null;
+  }
+
+  return (data as CalendarEventRow[]).map(rowToCalendarEvent);
+}
+
+export async function saveRemoteCalendarEvents(events: CalendarEvent[]) {
+  if (!isSupabaseConfigured || !supabase) return false;
+  if (!events.length) return true;
+
+  const rows = events.map(calendarEventToRow);
+  const { error } = await supabase.from("calendar_events").upsert(rows, { onConflict: "id" });
+  if (error) {
+    console.warn("Supabase calendar events save failed. Data remains saved locally.", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteRemoteCalendarEvent(id: string) {
+  if (!isSupabaseConfigured || !supabase) return false;
+
+  const { error } = await supabase.from("calendar_events").delete().eq("id", id);
+  if (error) {
+    console.warn("Supabase calendar event delete failed. Data remains saved locally.", error.message);
     return false;
   }
 
