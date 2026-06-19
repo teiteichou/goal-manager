@@ -3,6 +3,7 @@ export type GoalStatus = "active" | "done" | "missed";
 export type ExtendReason = "scope" | "priority" | "health" | "resource";
 export type SoundType = "off" | "library" | "forest" | "exam" | "field" | "classroom" | "rain";
 export type FinanceKind = "income" | "expense";
+export type NoteKind = "idea" | "study" | "paste";
 
 export type GoalReview = {
   comment: string;
@@ -37,4 +38,14 @@ export type FinanceEntry = {
   category: string;
   date: string;
   memo: string;
+};
+
+export type NoteItem = {
+  id: string;
+  kind?: NoteKind;
+  themeId?: string;
+  title: string;
+  body: string;
+  answers?: Record<string, string>;
+  createdAt: string;
 };

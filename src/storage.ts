@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, supabase } from "./supabaseClient";
-import type { FinanceEntry, FinanceKind, Goal, GoalCategory, GoalStatus } from "./types";
+import type { FinanceEntry, FinanceKind, Goal, GoalCategory, GoalStatus, NoteItem } from "./types";
 
 const storeKey = "rinaspace-goals-v1";
 const focusStoreKey = "rinaspace-focus-minutes";
@@ -46,6 +46,31 @@ type FinanceEntryRow = {
   memo: string;
   entry_date: string;
   created_at?: string;
+  updated_at?: string;
+};
+
+type IdeaNoteRow = {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+  updated_at?: string;
+};
+
+type StudyNoteRow = {
+  id: string;
+  theme_id: string;
+  title: string;
+  answers: Record<string, string>;
+  created_at: string;
+  updated_at?: string;
+};
+
+type PasteNoteRow = {
+  id: string;
+  title: string;
+  body_html: string;
+  created_at: string;
   updated_at?: string;
 };
 
@@ -111,6 +136,47 @@ function rowToFinanceEntry(row: FinanceEntryRow): FinanceEntry {
     date: row.entry_date,
     memo: row.memo ?? "",
   };
+}
+
+function rowToIdeaNote(row: IdeaNoteRow): NoteItem {
+  return {
+    id: row.id,
+    kind: "idea",
+    title: row.title,
+    body: row.body ?? "",
+    createdAt: row.created_at,
+  };
+}
+
+function rowToStudyNote(row: StudyNoteRow): NoteItem {
+  return {
+    id: row.id,
+    kind: "study",
+    themeId: row.theme_id || "tool",
+    title: row.title,
+    body: "",
+    answers: row.answers ?? {},
+    createdAt: row.created_at,
+  };
+}
+
+function rowToPasteNote(row: PasteNoteRow): NoteItem {
+  return {
+    id: row.id,
+    kind: "paste",
+    title: row.title,
+    body: row.body_html ?? "",
+    createdAt: row.created_at,
+  };
+}
+
+function noteUpdatedAt() {
+  return new Date().toISOString();
+}
+
+function noteCreatedAt(note: NoteItem) {
+  const createdAt = new Date(note.createdAt || Date.now());
+  return Number.isNaN(createdAt.getTime()) ? new Date().toISOString() : createdAt.toISOString();
 }
 
 export function loadLocalGoals(fallback: Goal[]): Goal[] {
@@ -227,6 +293,92 @@ export async function deleteRemoteFinanceEntry(id: string) {
   const { error } = await supabase.from("finance_entries").delete().eq("id", id);
   if (error) {
     console.warn("Supabase finance delete failed. Data remains saved locally.", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function loadRemoteNotes(): Promise<NoteItem[] | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+
+  const [ideaResult, studyResult, pasteResult] = await Promise.all([
+    supabase.from("idea_notes").select("id,title,body,created_at,updated_at"),
+    supabase.from("study_notes").select("id,theme_id,title,answers,created_at,updated_at"),
+    supabase.from("paste_notes").select("id,title,body_html,created_at,updated_at"),
+  ]);
+
+  const error = ideaResult.error ?? studyResult.error ?? pasteResult.error;
+  if (error) {
+    console.warn("Supabase notes load failed. Falling back to localStorage.", error.message);
+    return null;
+  }
+
+  return [
+    ...((ideaResult.data ?? []) as IdeaNoteRow[]).map(rowToIdeaNote),
+    ...((studyResult.data ?? []) as StudyNoteRow[]).map(rowToStudyNote),
+    ...((pasteResult.data ?? []) as PasteNoteRow[]).map(rowToPasteNote),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function saveRemoteNotes(notes: NoteItem[]) {
+  if (!isSupabaseConfigured || !supabase) return false;
+  if (!notes.length) return true;
+
+  const updated_at = noteUpdatedAt();
+  const ideaRows = notes
+    .filter((note) => (note.kind ?? "idea") === "idea")
+    .map((note) => ({
+      id: note.id,
+      title: note.title,
+      body: note.body ?? "",
+      created_at: noteCreatedAt(note),
+      updated_at,
+    }));
+  const studyRows = notes
+    .filter((note) => note.kind === "study")
+    .map((note) => ({
+      id: note.id,
+      theme_id: note.themeId || "tool",
+      title: note.title,
+      answers: note.answers ?? {},
+      created_at: noteCreatedAt(note),
+      updated_at,
+    }));
+  const pasteRows = notes
+    .filter((note) => note.kind === "paste")
+    .map((note) => ({
+      id: note.id,
+      title: note.title,
+      body_html: note.body ?? "",
+      created_at: noteCreatedAt(note),
+      updated_at,
+    }));
+
+  const results = await Promise.all([
+    ideaRows.length ? supabase.from("idea_notes").upsert(ideaRows, { onConflict: "id" }) : Promise.resolve({ error: null }),
+    studyRows.length ? supabase.from("study_notes").upsert(studyRows, { onConflict: "id" }) : Promise.resolve({ error: null }),
+    pasteRows.length ? supabase.from("paste_notes").upsert(pasteRows, { onConflict: "id" }) : Promise.resolve({ error: null }),
+  ]);
+
+  const error = results.find((result) => result.error)?.error;
+  if (error) {
+    console.warn("Supabase notes save failed. Data remains saved locally.", error.message);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteRemoteNote(note: NoteItem) {
+  if (!isSupabaseConfigured || !supabase) return false;
+
+  const tableName =
+    note.kind === "study" ? "study_notes" : note.kind === "paste" ? "paste_notes" : "idea_notes";
+  const { error } = await supabase.from(tableName).delete().eq("id", note.id);
+
+  if (error) {
+    console.warn("Supabase note delete failed. Data remains saved locally.", error.message);
     return false;
   }
 

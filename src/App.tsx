@@ -23,24 +23,26 @@ import {
   X,
 } from "lucide-react";
 import {
+  deleteRemoteNote,
   deleteRemoteGoal,
   deleteRemoteFinanceEntry,
   loadFocusStats,
   loadLocalGoals,
   loadRemoteFinanceEntries,
   loadRemoteGoals,
+  loadRemoteNotes,
   saveRemoteFinanceEntries,
   saveFocusStats,
   saveLocalGoals,
   saveRemoteGoals,
+  saveRemoteNotes,
 } from "./storage";
 import { isSupabaseConfigured } from "./supabaseClient";
-import type { ExtendReason, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalFormValues, GoalStatus, SoundType } from "./types";
+import type { ExtendReason, FinanceEntry, FinanceKind, Goal, GoalCategory, GoalFormValues, GoalStatus, NoteItem, NoteKind, SoundType } from "./types";
 
 type Language = "ja" | "en" | "zh";
 type ViewKey = "dashboard" | "goals" | "calendar" | "notes" | "finance" | "code";
 type CodeLanguage = "java" | "oracle" | "react" | "javascript";
-type NoteKind = "idea" | "study" | "paste";
 
 type CalendarEvent = {
   id: string;
@@ -49,16 +51,6 @@ type CalendarEvent = {
   startTime: string;
   endTime: string;
   memo: string;
-  createdAt: string;
-};
-
-type NoteItem = {
-  id: string;
-  kind?: NoteKind;
-  themeId?: string;
-  title: string;
-  body: string;
-  answers?: Record<string, string>;
   createdAt: string;
 };
 
@@ -1192,6 +1184,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let alive = true;
+
+    loadRemoteNotes().then((remoteNotes) => {
+      if (!alive || !remoteNotes?.length) return;
+      setNotes(remoteNotes);
+      localStorage.setItem(notesStoreKey, JSON.stringify(remoteNotes));
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const now = Date.now();
     let changed = false;
     const nextGoals = goals.map((goal) => {
@@ -1223,6 +1229,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem(notesStoreKey, JSON.stringify(notes));
+    saveRemoteNotes(notes);
   }, [notes]);
 
   useEffect(() => {
@@ -1580,7 +1587,9 @@ export default function App() {
   }
 
   function deleteNote(id: string) {
+    const targetNote = notes.find((note) => note.id === id);
     setNotes((current) => current.filter((note) => note.id !== id));
+    if (targetNote) deleteRemoteNote(targetNote);
     if (editingIdeaId === id) {
       setEditingIdeaId(null);
       setNoteDraft((current) => ({ ...current, kind: "idea", title: "", body: "" }));
@@ -2698,9 +2707,10 @@ function NotesView({
   const ideaNotes = notes.filter((note) => (note.kind ?? "idea") === "idea");
   const studyNotes = notes.filter((note) => note.kind === "study");
   const pasteNotes = notes.filter((note) => note.kind === "paste");
-  const totalPages = Math.max(1, Math.ceil(ideaNotes.length / 15));
+  const ideaNotesPerPage = 20;
+  const totalPages = Math.max(1, Math.ceil(ideaNotes.length / ideaNotesPerPage));
   const safePage = Math.min(ideaPage, totalPages);
-  const visibleIdeas = ideaNotes.slice((safePage - 1) * 15, safePage * 15);
+  const visibleIdeas = ideaNotes.slice((safePage - 1) * ideaNotesPerPage, safePage * ideaNotesPerPage);
   const selectedStudyNote = studyNotes.find((note) => note.id === editingStudyId) ?? null;
   const selectedPasteNote = pasteNotes.find((note) => note.id === editingPasteId) ?? null;
   const isStudyReadOnly = Boolean(selectedStudyNote && !isStudyEditing);
@@ -2742,10 +2752,10 @@ function NotesView({
     const editor = pasteEditorRef.current;
     if (noteMode !== "paste" || !editor) return;
 
-    if (editor.innerHTML !== noteDraft.body) {
-      editor.innerHTML = noteDraft.body;
+    if (editor.innerHTML !== pasteBody) {
+      editor.innerHTML = pasteBody;
     }
-  }, [editingPasteId, noteDraft.body, noteMode]);
+  }, [editingPasteId, isPasteReadOnly, noteMode, pasteBody]);
 
   useEffect(() => {
     if (noteMode !== "paste") {
@@ -3115,7 +3125,7 @@ function NotesView({
             onChange={(event) => setNoteDraft({ ...noteDraft, kind: "idea", title: event.target.value })}
           />
         </label>
-        <label className="field">
+        <label className="field idea-body-field">
           <span>{t.notesField}</span>
           <textarea
             rows={8}
@@ -3130,7 +3140,7 @@ function NotesView({
         </button>
       </form>
 
-      <div className="work-panel">
+      <div className="work-panel idea-board-panel">
         <div className="section-head">
           <h2>{t.ideaNotes}</h2>
           <div className="pager">
